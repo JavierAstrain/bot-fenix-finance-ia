@@ -2,7 +2,15 @@ import streamlit as st
 import openai
 import gspread
 import pandas as pd
-from oauth2client.service_account import ServiceAccountCredentials
+import os
+import json
+import gspread
+from google.oauth2.service_account import Credentials
+
+# Autenticación segura desde Secrets
+creds_dict = json.loads(os.environ["GOOGLE_CREDENTIALS"])
+credentials = Credentials.from_service_account_info(creds_dict)
+gc = gspread.authorize(credentials)
 
 st.set_page_config(page_title="Fénix Bot Controller IA", layout="centered")
 
