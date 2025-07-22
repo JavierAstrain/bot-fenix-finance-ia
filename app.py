@@ -1,4 +1,3 @@
-st.write("KEY:", st.secrets.get("OPENROUTER_API_KEY"))
 import streamlit as st
 import pandas as pd
 import gspread
