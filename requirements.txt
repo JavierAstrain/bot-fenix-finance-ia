@@ -1,7 +1,5 @@
 streamlit
-gspread
 pandas
+gspread
 google-auth
-openai>=1.0.0
-tabulate
-matplotlib
+requests
