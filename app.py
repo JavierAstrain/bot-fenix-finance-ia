@@ -23,7 +23,7 @@ client = gspread.authorize(credentials)
 # ---------------------------
 # Abrir hoja de Google Sheets
 # ---------------------------
-sheet = client.open_by_url("https://docs.google.com/spreadsheets/d/1q1qU7QIXxBES6QOJyi25r5_Udf-c9nEGUKlb_Ya_yZQ/edit#gid=0")
+sheet = client.open_by_url("https://docs.google.com/spreadsheets/d/1mXxUmIQ44rd9escHOee2w0LxGs4MVNXaPrUeqj4USpk/edit#gid=0")
 worksheet = sheet.worksheet("Hoja 1")
 data = worksheet.get_all_records()
 
