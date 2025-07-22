@@ -35,8 +35,9 @@ st.subheader("💬 Hazme una pregunta sobre los datos:")
 pregunta = st.text_input("Escribe tu pregunta:")
 
 if pregunta:
-    contexto = f"Estos son los datos financieros:
-{df.to_csv(index=False)}"
+    contexto = f"""Estos son los datos financieros:
+{df.head(10).to_string(index=False)}
+"""
     prompt = f"{contexto}\n\nResponde esta pregunta del usuario de forma clara y profesional en español:\n{pregunta}"
 
     with st.spinner("Pensando..."):
