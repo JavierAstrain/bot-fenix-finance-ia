@@ -1,12 +1,12 @@
-
 import streamlit as st
 import pandas as pd
 import gspread
-from google.oauth2.service_account import Credentials
+import json
 import requests
+from google.oauth2.service_account import Credentials
 
 # --- CARGA CREDENCIALES GOOGLE DESDE SECRETS ---
-creds_dict = st.secrets["GOOGLE_CREDENTIALS"]
+creds_dict = json.loads(st.secrets["GOOGLE_CREDENTIALS"])
 scope = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
 creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
 client_gs = gspread.authorize(creds)
