@@ -14,7 +14,7 @@ scope = [
 client_gs = service_account_from_dict(creds_dict, scopes=scope)
 
 # --- CONEXIÓN A GOOGLE SHEET ---
-spreadsheet_url = "https://docs.google.com/spreadsheets/d/1mXxUmIQ44rd9escHOee2w0LxGs4MVNXaPrUeqj4USpk"
+spreadsheet_url = "https://docs.google.com/spreadsheets/d/1mXxUmIQ44rd9escHOee2w0LxGs4MVNXaPrUeqj4USpk/edit?gid=0#gid=0"
 try:
     sheet = client_gs.open_by_url(spreadsheet_url).sheet1
 except Exception as e:
