@@ -13,6 +13,7 @@ client_gs = gspread.authorize(creds)
 
 # --- CARGA DATA DESDE GOOGLE SHEET ---
 spreadsheet_url = "https://docs.google.com/spreadsheets/d/1mXxUmIQ44rd9escHOee2w0LxGs4MVNXaPrUeqj4USpk"
+
 try:
     sheet = client_gs.open_by_url(spreadsheet_url).sheet1
     data = sheet.get_all_values()
@@ -31,9 +32,8 @@ try:
     pregunta = st.text_input("Ej: ¿Cuáles fueron las ventas del año 2025?")
 
     if pregunta:
-        try:
-            preview = df.head(20).to_string(index=False)
-            contexto = f"""Estos son datos financieros (primeras filas):
+        preview = df.head(20).to_string(index=False)
+        contexto = f"""Estos son datos financieros (primeras filas):
 
 {preview}
 
@@ -41,17 +41,18 @@ Ahora responde esta pregunta de forma clara y concreta en español:
 
 {pregunta}
 """
-            headers = {
-                "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}",
-                "Content-Type": "application/json"
-            }
+        headers = {
+            "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}",
+            "Content-Type": "application/json"
+        }
 
-            payload = {
-                "model": "openai/gpt-3.5-turbo",
-                "messages": [{"role": "user", "content": contexto}],
-                "temperature": 0.3
-            }
+        payload = {
+            "model": "openai/gpt-3.5-turbo",
+            "messages": [{"role": "user", "content": contexto}],
+            "temperature": 0.3
+        }
 
+        try:
             with st.spinner("Consultando IA..."):
                 response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload)
                 if response.status_code == 200:
@@ -62,6 +63,9 @@ Ahora responde esta pregunta de forma clara y concreta en español:
                     st.error(f"Error al consultar OpenRouter: {response.status_code}")
                     st.text(response.text)
         except Exception as e:
-            st.error("❌ Error en la consulta con OpenRouter")
+            st.error("Error consultando OpenRouter")
             st.exception(e)
 
+except Exception as e:
+    st.error("❌ No se pudo abrir la hoja. Revisa permisos y credenciales.")
+    st.exception(e)
