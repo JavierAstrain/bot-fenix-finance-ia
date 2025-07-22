@@ -44,7 +44,7 @@ Pregunta: {pregunta}
 Responde de forma clara, en español y basada exclusivamente en los datos entregados arriba."""
 
     with st.spinner("Pensando..."):
-        openai.api_key = st.secrets["OPENROUTER_API_KEY"]
+        openai.api_key = st.secrets["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"]
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": contexto}],
