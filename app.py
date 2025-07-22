@@ -1,5 +1,4 @@
 import streamlit as st
-import json
 import gspread
 from google.oauth2.service_account import Credentials
 
@@ -9,9 +8,9 @@ st.title("🧠 Fénix Bot Controller IA")
 st.markdown("Este bot es un analista financiero digital. Hazle una pregunta:")
 
 # ========================
-# Cargar credenciales desde st.secrets
+# Cargar credenciales desde st.secrets (ya es dict)
 # ========================
-creds_dict = json.loads(st.secrets["GOOGLE_CREDENTIALS"])
+creds_dict = st.secrets["GOOGLE_CREDENTIALS"]
 
 # Crear objeto Credentials
 scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
@@ -35,11 +34,11 @@ user_input = st.text_input("Escribe tu consulta:")
 if user_input:
     st.markdown("🤖 *Procesando tu consulta...*")
 
-    # Simulación de respuesta con IA (puedes reemplazar esta parte por OpenAI o GPT más adelante)
+    # Simulación de respuesta con IA (aquí puedes integrar GPT si deseas)
     respuesta = f"Tu consulta fue: **{user_input}**\n\n(Esto es una respuesta simulada.)"
 
     # Mostrar respuesta
     st.success(respuesta)
 
-    # Registrar consulta en Google Sheets
+    # Registrar en Sheets
     worksheet.append_row([user_input, respuesta])
