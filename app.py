@@ -1,62 +1,55 @@
-import json
 import streamlit as st
 import pandas as pd
 import gspread
+import json
+import openai
 from google.oauth2.service_account import Credentials
-from openai import OpenAI
-import matplotlib.pyplot as plt
 
-# --- Configurar API ---
-client_openai = OpenAI(
-    base_url="https://openrouter.ai/api/v1",
-    api_key=st.secrets["OPENROUTER_API_KEY"]
-)
-
-# --- Conexión con Google Sheets ---
+# --- CARGAR CREDENCIALES ---
 creds_dict = json.loads(st.secrets["GOOGLE_CREDENTIALS"])
-creds = Credentials.from_service_account_info(creds_dict)
+scope = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
+creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
 client_gs = gspread.authorize(creds)
+
+# --- LEER GOOGLE SHEET ---
 spreadsheet_url = "https://docs.google.com/spreadsheets/d/1mXxUmIQ44rd9escHOee2w0LxGs4MVNXaPrUeqj4USpk"
 sheet = client_gs.open_by_url(spreadsheet_url).sheet1
 data = sheet.get_all_values()
 df = pd.DataFrame(data[1:], columns=data[0])
 
-# --- Limpieza ---
+# --- LIMPIEZA DE DATOS ---
 df["Fecha"] = pd.to_datetime(df["Fecha"], errors="coerce")
 df["Monto Facturado"] = pd.to_numeric(df["Monto Facturado"], errors="coerce")
 
-# --- Interfaz Streamlit ---
+# --- MOSTRAR TABLA ---
 st.title("🤖 Bot Fénix Finance IA")
-st.write("Controller financiero inteligente para tu negocio")
+st.write("Controlador financiero conversacional basado en tus datos de Google Sheets.")
 
-st.subheader("📊 Datos actuales:")
+st.subheader("📊 Tabla actual:")
 st.dataframe(df)
 
-st.subheader("💬 Hazme una pregunta sobre los datos:")
-pregunta = st.text_input("Escribe tu pregunta:")
+# --- IA: CONTEXTO + PREGUNTA ---
+st.subheader("💬 Haz una pregunta sobre tu información financiera:")
+
+pregunta = st.text_input("Ejemplo: ¿Cuál fue el monto facturado total en marzo de 2025?")
 
 if pregunta:
-    contexto = f"""Estos son los datos financieros:
-{df.head(10).to_string(index=False)}
-"""
-    prompt = f"{contexto}\n\nResponde esta pregunta del usuario de forma clara y profesional en español:\n{pregunta}"
+    # Convertimos DataFrame a tabla de texto resumida para el prompt
+    preview = df.head(15).to_string(index=False)
+    contexto = f"""Estos son los datos financieros (solo primeras 15 filas para contexto):
+    
+{preview}
+
+Pregunta: {pregunta}
+Responde de forma clara, en español y basada exclusivamente en los datos entregados arriba."""
 
     with st.spinner("Pensando..."):
-        respuesta = client_openai.chat.completions.create(
-            model="mistralai/mixtral-8x7b",
-            messages=[{"role": "user", "content": prompt}],
+        openai.api_key = st.secrets["OPENROUTER_API_KEY"]
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": contexto}],
             temperature=0.3
         )
-        st.success("Respuesta:")
-        st.write(respuesta.choices[0].message.content)
-
-    # Extra: si en la pregunta hay "gráfico" o "evolución mensual", graficar
-    if "gráfico" in pregunta.lower() or "evolución" in pregunta.lower():
-        df_mes = df.groupby(df["Fecha"].dt.to_period("M"))["Monto Facturado"].sum().reset_index()
-        df_mes["Fecha"] = df_mes["Fecha"].astype(str)
-        plt.figure(figsize=(10,5))
-        plt.plot(df_mes["Fecha"], df_mes["Monto Facturado"], marker="o")
-        plt.title("Evolución mensual del Monto Facturado")
-        plt.xticks(rotation=45)
-        plt.grid(True)
-        st.pyplot(plt)
+        respuesta = response["choices"][0]["message"]["content"]
+        st.success("🤖 Respuesta del bot:")
+        st.write(respuesta)
