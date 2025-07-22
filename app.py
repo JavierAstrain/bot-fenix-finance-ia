@@ -40,28 +40,27 @@ Ahora responde esta pregunta de forma clara y concreta en español:
 
 {pregunta}
 """
-try:
-    headers = {
-        "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}",
-        "Content-Type": "application/json"
-    }
+        headers = {
+            "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}",
+            "Content-Type": "application/json"
+        }
 
-    payload = {
-        "model": "openai/gpt-3.5-turbo",
-        "messages": [{"role": "user", "content": "Hola"}],
-        "temperature": 0.3
-    }
+        payload = {
+            "model": "openai/gpt-3.5-turbo",
+            "messages": [{"role": "user", "content": contexto}],
+            "temperature": 0.3
+        }
 
-    response = requests.post(
-        "https://openrouter.ai/api/v1/chat/completions",
-        headers=headers,
-        json=payload
-    )
-
-    st.write("Status:", response.status_code)
-    st.write("Response:", response.text)
+        with st.spinner("Consultando IA..."):
+            response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload)
+            if response.status_code == 200:
+                respuesta = response.json()["choices"][0]["message"]["content"]
+                st.success("🤖 Respuesta:")
+                st.write(respuesta)
+            else:
+                st.error(f"Error al consultar OpenRouter: {response.status_code}")
+                st.text(response.text)
 
 except Exception as e:
-    st.error("❌ Error durante el test de API Key")
+    st.error("\u274c No se pudo abrir la hoja. Revisa permisos y credenciales.")
     st.exception(e)
-
