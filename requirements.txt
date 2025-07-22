@@ -3,3 +3,4 @@ gspread
 pandas
 google-auth
 openai>=1.0.0
+tabulate
