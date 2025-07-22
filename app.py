@@ -4,9 +4,10 @@ import gspread
 import json
 from google.oauth2.service_account import Credentials
 
-# ✅ Convertir string JSON a dict
+# Convertir string a dict y agregar scopes
 creds_dict = json.loads(st.secrets["GOOGLE_CREDENTIALS"])
-creds = Credentials.from_service_account_info(creds_dict)
+scopes = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
+creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
 client = gspread.authorize(creds)
 
 # Leer datos desde Google Sheets
@@ -16,20 +17,15 @@ data = sheet.get_all_values()
 
 # Convertir a DataFrame
 df = pd.DataFrame(data[1:], columns=data[0])
-
-# Convertir columnas necesarias
 df["Fecha"] = pd.to_datetime(df["Fecha"], errors="coerce")
 df["Monto Facturado"] = pd.to_numeric(df["Monto Facturado"], errors="coerce")
 
-# Título
+# Interfaz
 st.title("🤖 Bot Fénix Finance IA")
 st.write("Conecta datos financieros desde Google Sheets para control inteligente.")
-
-# Mostrar tabla
 st.subheader("📊 Datos actuales:")
 st.dataframe(df)
 
-# Pregunta libre
 st.subheader("💬 Pregúntame sobre tus datos:")
 pregunta = st.text_input("Escribe tu pregunta:")
 
@@ -39,4 +35,3 @@ if pregunta:
         st.success(f"✅ Las ventas totales del año 2025 fueron: ${total_ventas:,.0f}")
     else:
         st.info("🧠 Por ahora solo puedo responder preguntas sobre las ventas del año 2025.")
-
