@@ -16,7 +16,7 @@ creds = Credentials.from_service_account_info(creds_dict)
 client = gspread.authorize(creds)
 
 # ---------- CARGAR GOOGLE SHEET ----------
-spreadsheet_url = "https://docs.google.com/spreadsheets/d/1mXxUmIQ44rd9escHOee2w0LxGs4MVNXaPrUeqj4USpk/edit#gid=0"
+spreadsheet_url = "https://docs.google.com/spreadsheets/d/1mXxUmIQ44rd9escHOee2w0LxGs4MVNXaPrUeqj4USpk"
 sheet = client.open_by_url(spreadsheet_url).sheet1
 data = sheet.get_all_records()
 df = pd.DataFrame(data)
