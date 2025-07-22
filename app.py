@@ -1,10 +1,11 @@
 import streamlit as st
 import pandas as pd
 import gspread
+import json
 from google.oauth2.service_account import Credentials
 
-# Configurar credenciales desde secrets
-creds_dict = st.secrets["GOOGLE_CREDENTIALS"]
+# ✅ Convertir string JSON a dict
+creds_dict = json.loads(st.secrets["GOOGLE_CREDENTIALS"])
 creds = Credentials.from_service_account_info(creds_dict)
 client = gspread.authorize(creds)
 
@@ -38,3 +39,4 @@ if pregunta:
         st.success(f"✅ Las ventas totales del año 2025 fueron: ${total_ventas:,.0f}")
     else:
         st.info("🧠 Por ahora solo puedo responder preguntas sobre las ventas del año 2025.")
+
