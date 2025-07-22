@@ -31,8 +31,9 @@ try:
     pregunta = st.text_input("Ej: ¿Cuáles fueron las ventas del año 2025?")
 
     if pregunta:
-        preview = df.head(20).to_string(index=False)
-        contexto = f"""Estos son datos financieros (primeras filas):
+        try:
+            preview = df.head(20).to_string(index=False)
+            contexto = f"""Estos son datos financieros (primeras filas):
 
 {preview}
 
@@ -40,27 +41,27 @@ Ahora responde esta pregunta de forma clara y concreta en español:
 
 {pregunta}
 """
-        headers = {
-            "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}",
-            "Content-Type": "application/json"
-        }
+            headers = {
+                "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}",
+                "Content-Type": "application/json"
+            }
 
-        payload = {
-            "model": "openai/gpt-3.5-turbo",
-            "messages": [{"role": "user", "content": contexto}],
-            "temperature": 0.3
-        }
+            payload = {
+                "model": "openai/gpt-3.5-turbo",
+                "messages": [{"role": "user", "content": contexto}],
+                "temperature": 0.3
+            }
 
-        with st.spinner("Consultando IA..."):
-            response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload)
-            if response.status_code == 200:
-                respuesta = response.json()["choices"][0]["message"]["content"]
-                st.success("🤖 Respuesta:")
-                st.write(respuesta)
-            else:
-                st.error(f"Error al consultar OpenRouter: {response.status_code}")
-                st.text(response.text)
+            with st.spinner("Consultando IA..."):
+                response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload)
+                if response.status_code == 200:
+                    respuesta = response.json()["choices"][0]["message"]["content"]
+                    st.success("🤖 Respuesta:")
+                    st.write(respuesta)
+                else:
+                    st.error(f"Error al consultar OpenRouter: {response.status_code}")
+                    st.text(response.text)
+        except Exception as e:
+            st.error("❌ Error en la consulta con OpenRouter")
+            st.exception(e)
 
-except Exception as e:
-    st.error("\u274c No se pudo abrir la hoja. Revisa permisos y credenciales.")
-    st.exception(e)
