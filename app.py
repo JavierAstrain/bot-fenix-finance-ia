@@ -1,54 +1,32 @@
 import streamlit as st
-import openai
-import gspread
 import json
-import os
+import gspread
 from google.oauth2.service_account import Credentials
 
-# ---------------------------
-# Configuración de página
-# ---------------------------
-st.set_page_config(page_title="Fénix Bot Controller IA")
+st.set_page_config(page_title="🤖 Fénix Bot Controller IA")
+st.title("\U0001F916 Fénix Bot Controller IA")
+st.markdown("Este bot es un analista financiero digital. Hazle una pregunta:")
 
-st.title("🤖 Fénix Bot Controller IA")
-st.write("Este bot es un analista financiero digital. Hazle una pregunta:")
-
-# ---------------------------
-# Cargar credenciales desde Secrets
-# ---------------------------
-creds_dict = json.loads(os.environ["GOOGLE_CREDENTIALS"])
+# Cargar credenciales desde secrets.toml
+creds_dict = json.loads(st.secrets["GOOGLE_CREDENTIALS"])
 credentials = Credentials.from_service_account_info(creds_dict)
 client = gspread.authorize(credentials)
 
-# ---------------------------
-# Abrir hoja de Google Sheets
-# ---------------------------
+# Abrir la hoja de Google Sheets
 sheet = client.open_by_url("https://docs.google.com/spreadsheets/d/1mXxUmIQ44rd9escHOee2w0LxGs4MVNXaPrUeqj4USpk/edit#gid=0")
-worksheet = sheet.worksheet("Hoja 1")
-data = worksheet.get_all_records()
+worksheet = sheet.sheet1
 
-# ---------------------------
-# Preparar contexto para GPT
-# ---------------------------
-contexto = "Eres un analista financiero que responde usando solo esta información:\n"
-for row in data:
-    contexto += json.dumps(row, ensure_ascii=False) + "\n"
+# Interfaz de entrada del usuario
+pregunta = st.text_input("Tu pregunta:")
 
-# ---------------------------
-# Entrada del usuario
-# ---------------------------
-user_input = st.text_input("Tu pregunta:")
+if pregunta:
+    st.write("Procesando tu consulta...")
 
-if user_input:
-    with st.spinner("Analizando información financiera..."):
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": contexto},
-                {"role": "user", "content": user_input}
-            ],
-            temperature=0.3,
-            max_tokens=500
-        )
-        respuesta = response.choices[0].message["content"]
-        st.success(respuesta)
+    # Guardar en la hoja
+    worksheet.append_row([pregunta])
+
+    # Aquí debería ir tu lógica de respuesta con IA (GPT, etc)
+    respuesta = "Estoy procesando tu información y te responderé pronto."
+
+    # Mostrar respuesta en la app
+    st.success(respuesta)
