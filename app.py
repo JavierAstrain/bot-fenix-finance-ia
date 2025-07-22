@@ -5,24 +5,23 @@ import json
 import requests
 from google.oauth2.service_account import Credentials
 
-# --- CARGA CREDENCIALES DESDE SECRETS ---
+# --- CARGA CREDENCIALES GOOGLE DESDE SECRETS ---
 creds_dict = json.loads(st.secrets["GOOGLE_CREDENTIALS"])
 scope = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
 creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
-client_gs = gspread.authorize(creds)
+client = gspread.authorize(creds)
 
-# --- CARGA DATA DESDE GOOGLE SHEET ---
-spreadsheet_url = "https://docs.google.com/spreadsheets/d/1mXxUmIQ44rd9escHOee2w0LxGs4MVNXaPrUeqj4USpk"
+# --- CARGA DATOS DESDE SHEET ---
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1mXxUmIQ44rd9escHOee2w0LxGs4MVNXaPrUeqj4USpk"
 
 try:
-    sheet = client_gs.open_by_url(spreadsheet_url).sheet1
+    sheet = client.open_by_url(SHEET_URL).sheet1
     data = sheet.get_all_values()
     df = pd.DataFrame(data[1:], columns=data[0])
-
     df["Fecha"] = pd.to_datetime(df["Fecha"], errors="coerce")
     df["Monto Facturado"] = pd.to_numeric(df["Monto Facturado"], errors="coerce")
 
-    # --- INTERFAZ ---
+    # --- UI ---
     st.title("🤖 Bot Fénix Finance IA")
     st.write("Haz preguntas en lenguaje natural sobre tu información financiera.")
     st.subheader("📊 Vista previa:")
@@ -32,10 +31,9 @@ try:
     pregunta = st.text_input("Ej: ¿Cuáles fueron las ventas del año 2025?")
 
     if pregunta:
-        preview = df.head(20).to_string(index=False)
         contexto = f"""Estos son datos financieros (primeras filas):
 
-{preview}
+{df.head(20).to_string(index=False)}
 
 Ahora responde esta pregunta de forma clara y concreta en español:
 
@@ -56,16 +54,16 @@ Ahora responde esta pregunta de forma clara y concreta en español:
             with st.spinner("Consultando IA..."):
                 response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload)
                 if response.status_code == 200:
-                    respuesta = response.json()["choices"][0]["message"]["content"]
+                    content = response.json()["choices"][0]["message"]["content"]
                     st.success("🤖 Respuesta:")
-                    st.write(respuesta)
+                    st.write(content)
                 else:
-                    st.error(f"Error al consultar OpenRouter: {response.status_code}")
+                    st.error(f"❌ Error al consultar OpenRouter: {response.status_code}")
                     st.text(response.text)
         except Exception as e:
-            st.error("Error consultando OpenRouter")
+            st.error("❌ Falló la conexión con OpenRouter.")
             st.exception(e)
 
 except Exception as e:
-    st.error("❌ No se pudo abrir la hoja. Revisa permisos y credenciales.")
+    st.error("❌ No se pudo cargar la hoja de cálculo.")
     st.exception(e)
