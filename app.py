@@ -40,6 +40,26 @@ Ahora responde esta pregunta de forma clara y concreta en español:
 
 {pregunta}
 """
+        import requests
+
+headers = {
+    "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}",
+    "Content-Type": "application/json"
+}
+payload = {
+    "model": "openai/gpt-3.5-turbo",
+    "messages": [{"role": "user", "content": "Hola"}],
+    "temperature": 0.3
+}
+
+resp = requests.post(
+    "https://openrouter.ai/api/v1/chat/completions",
+    headers=headers,
+    json=payload
+)
+st.write("Status:", resp.status_code)
+st.write("Response:", resp.text)
+
         headers = {
             "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}",
             "Content-Type": "application/json"
