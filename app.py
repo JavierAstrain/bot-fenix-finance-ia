@@ -45,7 +45,7 @@ Ahora responde esta pregunta de forma clara y concreta en español:
         }
 
         payload = {
-            "model": "openai/gpt-3.5-turbo",
+            "model": "openchat/openchat-7b",
             "messages": [{"role": "user", "content": contexto}],
             "temperature": 0.3
         }
