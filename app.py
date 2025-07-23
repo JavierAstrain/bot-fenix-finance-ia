@@ -11,7 +11,7 @@ scope = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
 creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
 client = gspread.authorize(creds)
 
-# --- CARGA DATOS DESDE SHEET ---
+# --- URL DE LA HOJA ---
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1mXxUmIQ44rd9escHOee2w0LxGs4MVNXaPrUeqj4USpk"
 
 try:
@@ -21,7 +21,7 @@ try:
     df["Fecha"] = pd.to_datetime(df["Fecha"], errors="coerce")
     df["Monto Facturado"] = pd.to_numeric(df["Monto Facturado"], errors="coerce")
 
-    # --- UI ---
+    # --- UI STREAMLIT ---
     st.title("🤖 Bot Fénix Finance IA")
     st.write("Haz preguntas en lenguaje natural sobre tu información financiera.")
     st.subheader("📊 Vista previa:")
