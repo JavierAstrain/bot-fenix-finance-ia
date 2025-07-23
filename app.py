@@ -44,11 +44,11 @@ Ahora responde esta pregunta de forma clara y concreta en español:
             "Content-Type": "application/json"
         }
 
-        payload = {
-            "model": "openchat/openchat-7b",
-            "messages": [{"role": "user", "content": contexto}],
-            "temperature": 0.3
-        }
+payload = {
+    "model": "mistralai/mistral-7b-instruct",
+    "messages": [{"role": "user", "content": contexto}],
+    "temperature": 0.3
+}
 
         try:
             with st.spinner("Consultando IA..."):
