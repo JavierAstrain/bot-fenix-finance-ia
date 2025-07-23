@@ -4,7 +4,8 @@ import gspread
 import json
 import requests
 from google.oauth2.service_account import Credentials
-import plotly.express as px # Importamos Plotly para los gráficos
+import plotly.express as px
+from datetime import datetime # Importamos datetime para manejar fechas
 
 # --- CREDENCIALES GOOGLE DESDE SECRETS ---
 try:
@@ -31,10 +32,11 @@ try:
     df["Fecha"] = pd.to_datetime(df["Fecha"], errors="coerce")
     df["Monto Facturado"] = pd.to_numeric(df["Monto Facturado"], errors="coerce")
 
-    # --- IMPORTANTE: Si tu DataFrame tiene una columna para 'particular' y 'seguro',
+    # --- IMPORTANTE: Si tu DataFrame tiene una columna para 'particular' y 'seguro' (ej. 'TipoCliente'),
     # asegúrate de que su nombre sea reconocido por Gemini en el prompt.
-    # Por ejemplo, si la columna se llama 'TipoCliente', asegúrate de que Gemini la pueda identificar.
-    # df["TipoCliente"] = df["TipoCliente"].astype(str) # Descomenta y ajusta si tienes esta columna
+    # Por ejemplo, si la columna se llama 'TipoCliente', descomenta y ajusta:
+    # if 'TipoCliente' in df.columns:
+    #     df["TipoCliente"] = df["TipoCliente"].astype(str)
 
     # Eliminar filas con valores NaN en columnas críticas para el análisis o gráficos
     df.dropna(subset=["Fecha", "Monto Facturado"], inplace=True)
@@ -71,20 +73,24 @@ try:
                             Si no es una solicitud de gráfico, marca 'is_chart_request' como false.
 
                             **Columnas de datos disponibles y sus tipos:**
-                            - 'Fecha' (tipo fecha)
+                            - 'Fecha' (tipo fecha, formato YYYY-MM-DD)
                             - 'Monto Facturado' (tipo numérico)
-                            - **IMPORTANTE:** Si tu hoja de cálculo tiene una columna con valores como 'particular' y 'seguro' (por ejemplo, 'TipoCliente' o 'Segmento'), menciónala aquí para que Gemini la pueda usar como 'color_column'. Si no existe, omítela.
+                            - **IMPORTANTE:** Si tu hoja de cálculo tiene una columna con valores como 'particular' y 'seguro' (ej. 'TipoCliente' o 'Segmento'), inclúyela aquí para que Gemini la pueda usar como 'color_column' o para 'additional_filters'. Si no existe, omítela. Ejemplo: 'TipoCliente' (tipo texto).
 
                             **Consideraciones para la respuesta:**
                             - Para gráficos de evolución (línea), la columna del eje X debe ser 'Fecha'.
                             - Para gráficos de barras o de línea que muestren evolución, los datos del eje Y ('Monto Facturado') a menudo necesitan ser sumados por la unidad de tiempo del eje X (ej: por mes, por año).
                             - Si el usuario pide "separado por X", "por tipo de Y", o "por categoría Z", identifica la columna correspondiente para 'color_column'. Si no hay una columna obvia en los datos para esa segmentación, deja 'color_column' vacío.
+                            - Si el usuario pide un rango de fechas (ej. "entre enero y marzo", "del 15 de marzo al 30 de abril"), extrae `start_date` y `end_date` en formato YYYY-MM-DD.
+                            - Si el usuario pide filtrar por otra columna (ej. "solo para clientes particulares"), extrae esto en `additional_filters` como una lista de objetos.
 
                             **Ejemplos de cómo mapear la intención:**
-                            - "evolución de ventas del año 2025": chart_type='line', x_axis='Fecha', y_axis='Monto Facturado', filter_column='Fecha', filter_value='2025', color_column=''
-                            - "ventas por mes": chart_type='bar', x_axis='Fecha', y_axis='Monto Facturado', filter_column='', filter_value='', color_column=''
-                            - "gráfico de barras de montos facturados por tipo de cliente": chart_type='bar', x_axis='TipoCliente', y_axis='Monto Facturado', filter_column='', filter_value='', color_column='TipoCliente'
-                            - "creame un grafico con la evolucion de ventas de 2025 separado por particular y seguro": chart_type='line', x_axis='Fecha', y_axis='Monto Facturado', filter_column='Fecha', filter_value='2025', color_column='TipoCliente' (asumiendo 'TipoCliente' existe y contiene 'particular' y 'seguro')
+                            - "evolución de ventas del año 2025": chart_type='line', x_axis='Fecha', y_axis='Monto Facturado', filter_column='Fecha', filter_value='2025', color_column='', start_date='', end_date='', additional_filters=[]
+                            - "ventas por mes": chart_type='bar', x_axis='Fecha', y_axis='Monto Facturado', filter_column='', filter_value='', color_column='', start_date='', end_date='', additional_filters=[]
+                            - "gráfico de barras de montos facturados por TipoCliente": chart_type='bar', x_axis='TipoCliente', y_axis='Monto Facturado', filter_column='', filter_value='', color_column='TipoCliente', start_date='', end_date='', additional_filters=[]
+                            - "creame un grafico con la evolucion de ventas de 2025 separado por particular y seguro": chart_type='line', x_axis='Fecha', y_axis='Monto Facturado', filter_column='Fecha', filter_value='2025', color_column='TipoCliente', start_date='', end_date='', additional_filters=[]
+                            - "ventas entre 2024-03-01 y 2024-06-30": chart_type='line', x_axis='Fecha', y_axis='Monto Facturado', filter_column='', filter_value='', color_column='', start_date='2024-03-01', end_date='2024-06-30', additional_filters=[]
+                            - "ventas de particular en el primer trimestre de 2025": chart_type='line', x_axis='Fecha', y_axis='Monto Facturado', filter_column='Fecha', filter_value='2025', color_column='', start_date='2025-01-01', end_date='2025-03-31', additional_filters=[{"column": "TipoCliente", "value": "particular"}]
 
                             **Pregunta del usuario:** "{pregunta}"
                             """
@@ -120,34 +126,53 @@ try:
                         },
                         "filter_column": {
                             "type": "STRING",
-                            "description": "Columna para filtrar (ej: 'Fecha'). Vacío si no hay filtro."
+                            "description": "Columna para filtro principal (ej: 'Fecha' para año). Vacío si no hay filtro principal."
                         },
                         "filter_value": {
                             "type": "STRING",
-                            "description": "Valor para filtrar (ej: '2025', 'Enero'). Vacío si no hay filtro."
+                            "description": "Valor para filtro principal (ej: '2025', 'Enero'). Vacío si no hay filtro principal."
+                        },
+                        "start_date": {
+                            "type": "STRING",
+                            "description": "Fecha de inicio del rango (YYYY-MM-DD). Vacío si no hay rango."
+                        },
+                        "end_date": {
+                            "type": "STRING",
+                            "description": "Fecha de fin del rango (YYYY-MM-DD). Vacío si no hay rango."
+                        },
+                        "additional_filters": {
+                            "type": "ARRAY",
+                            "description": "Lista de filtros adicionales por columna.",
+                            "items": {
+                                "type": "OBJECT",
+                                "properties": {
+                                    "column": {"type": "STRING"},
+                                    "value": {"type": "STRING"}
+                                }
+                            }
                         },
                         "summary_response": {
                             "type": "STRING",
                             "description": "Respuesta conversacional si se genera un gráfico. Vacío si no es gráfico."
                         }
                     },
-                    "required": ["is_chart_request", "chart_type", "x_axis", "y_axis", "color_column", "filter_column", "filter_value", "summary_response"]
+                    "required": ["is_chart_request", "chart_type", "x_axis", "y_axis", "color_column", "filter_column", "filter_value", "start_date", "end_date", "additional_filters", "summary_response"]
                 }
             }
         }
 
         try:
-            with st.spinner("Analizando su solicitud y preparando el gráfico..."):
+            with st.spinner("Analizando su solicitud y preparando el gráfico/análisis..."):
                 chart_response = requests.post(api_url, headers={"Content-Type": "application/json"}, json=chart_detection_payload)
                 chart_data_raw = chart_response.json()["candidates"][0]["content"]["parts"][0]["text"]
-                chart_data = json.loads(chart_data_raw) # Parsear el JSON
+                chart_data = json.loads(chart_data_raw)
 
             if chart_data.get("is_chart_request"):
                 st.success(chart_data.get("summary_response", "Aquí tienes el gráfico solicitado:"))
 
                 filtered_df = df.copy()
 
-                # Aplicar filtro si existe
+                # --- Aplicar filtro principal (año/mes) ---
                 if chart_data["filter_column"] and chart_data["filter_value"]:
                     if chart_data["filter_column"] == "Fecha":
                         try:
@@ -163,10 +188,34 @@ try:
                             if month_name in month_map:
                                 filtered_df = filtered_df[filtered_df["Fecha"].dt.month == month_map[month_name]]
                             else:
-                                st.warning(f"No se pudo aplicar el filtro de fecha '{chart_data['filter_value']}'. Mostrando todos los datos relevantes.")
+                                st.warning(f"No se pudo aplicar el filtro de fecha '{chart_data['filter_value']}'.")
                     else:
-                        # Para otros tipos de columnas de filtro
                         filtered_df = filtered_df[filtered_df[chart_data["filter_column"]].astype(str).str.contains(chart_data["filter_value"], case=False, na=False)]
+
+                # --- Aplicar filtros por rango de fechas (start_date, end_date) ---
+                if chart_data.get("start_date"):
+                    try:
+                        start_dt = pd.to_datetime(chart_data["start_date"])
+                        filtered_df = filtered_df[filtered_df["Fecha"] >= start_dt]
+                    except ValueError:
+                        st.warning(f"Formato de fecha de inicio inválido: {chart_data['start_date']}. No se aplicó el filtro.")
+                if chart_data.get("end_date"):
+                    try:
+                        end_dt = pd.to_datetime(chart_data["end_date"])
+                        filtered_df = filtered_df[filtered_df["Fecha"] <= end_dt]
+                    except ValueError:
+                        st.warning(f"Formato de fecha de fin inválido: {chart_data['end_date']}. No se aplicó el filtro.")
+
+                # --- Aplicar filtros adicionales ---
+                if chart_data.get("additional_filters"):
+                    for add_filter in chart_data["additional_filters"]:
+                        col = add_filter.get("column")
+                        val = add_filter.get("value")
+                        if col and val and col in filtered_df.columns:
+                            filtered_df = filtered_df[filtered_df[col].astype(str).str.contains(val, case=False, na=False)]
+                        elif col and col not in filtered_df.columns:
+                            st.warning(f"La columna '{col}' para filtro adicional no se encontró en los datos.")
+
 
                 # Asegurarse de que haya datos después de filtrar
                 if filtered_df.empty:
@@ -188,17 +237,14 @@ try:
                         color_col = None # Ignorar la columna si no existe
 
                     # --- Agregación y ordenamiento para gráficos de línea/barras ---
-                    # Esto es crucial para que los gráficos de evolución se vean bien
                     group_cols = [x_col]
                     if color_col:
                         group_cols.append(color_col)
 
-                    # Para agrupar correctamente por fecha (ej. por día, por mes, etc.)
-                    # Creamos una columna temporal para la agrupación si el eje X es 'Fecha'
                     if x_col == "Fecha":
-                        # Agrupar por el período que tenga sentido, por ejemplo, por mes si los datos son diarios
-                        # o por día si se quiere más granularidad. Aquí agrupamos por mes para una evolución más suave.
                         aggregated_df = filtered_df.copy()
+                        # Agrupar por el período que tenga sentido, por ejemplo, por mes
+                        # Usamos 'M' para mes, 'D' para día, 'Q' para trimestre, 'Y' para año
                         aggregated_df['Fecha_Agrupada'] = aggregated_df['Fecha'].dt.to_period('M').dt.to_timestamp()
                         group_cols_for_agg = ['Fecha_Agrupada']
                         if color_col:
@@ -208,9 +254,8 @@ try:
                         aggregated_df = aggregated_df.sort_values(by='Fecha_Agrupada')
                         x_col_for_plot = 'Fecha_Agrupada'
                     else:
-                        # Para otras columnas que no son fecha, simplemente agrupar por ellas
                         aggregated_df = filtered_df.groupby(group_cols)[y_col].sum().reset_index()
-                        aggregated_df = aggregated_df.sort_values(by=x_col) # Ordenar por la columna X
+                        aggregated_df = aggregated_df.sort_values(by=x_col)
                         x_col_for_plot = x_col
 
 
@@ -224,14 +269,10 @@ try:
                                      title=f"Distribución de {y_col} por {x_col}",
                                      labels={x_col_for_plot: x_col, y_col: y_col})
                     elif chart_data["chart_type"] == "pie":
-                        # Para gráficos de pastel, no se usa x_col_for_plot, sino x_col original como names
-                        # y se agrupa por x_col y se suma y_col
-                        # No se agrega color_col directamente en pie, se usa names y values
                         grouped_pie_df = filtered_df.groupby(x_col)[y_col].sum().reset_index()
                         fig = px.pie(grouped_pie_df, names=x_col, values=y_col,
                                      title=f"Proporción de {y_col} por {x_col}")
                     elif chart_data["chart_type"] == "scatter":
-                        # Scatter plots a menudo no necesitan agregación si se quiere ver cada punto de dato
                         fig = px.scatter(filtered_df, x=x_col, y=y_col, color=color_col,
                                          title=f"Relación entre {x_col} y {y_col}",
                                          labels={x_col: x_col, y_col: y_col})
@@ -241,7 +282,7 @@ try:
                     else:
                         st.warning("No se pudo generar el tipo de gráfico solicitado o los datos no son adecuados.")
             else: # Si no es una solicitud de gráfico, procede con el análisis de texto
-                # --- SEGUNDA LLAMADA A GEMINI: ANÁLISIS Y RECOMENDACIONES (como antes) ---
+                # --- SEGUNDA LLAMADA A GEMINI: ANÁLISIS Y RECOMENDACIONES (con mejoras) ---
                 contexto_analisis = f"""Eres un asistente de IA especializado en análisis financiero. Tu misión es ayudar al usuario a interpretar sus datos, identificar tendencias, predecir posibles escenarios (con cautela) y ofrecer recomendaciones estratégicas.
 
                 Aquí están las **primeras 20 filas** de los datos financieros disponibles para tu análisis:
@@ -251,9 +292,9 @@ try:
                 Basándote **exclusivamente** en la información proporcionada y en tu rol de analista financiero, por favor, responde a la siguiente pregunta del usuario.
 
                 Al formular tu respuesta, considera lo siguiente:
-                1.  **Análisis:** Busca patrones, anomalías, crecimientos o decrecimientos significativos.
+                1.  **Análisis Profundo:** Busca patrones, anomalías, crecimientos o decrecimientos significativos. Identifica y destaca cualquier punto clave (máximos, mínimos, cambios abruptos) relevantes para la pregunta.
                 2.  **Predicción (si aplica):** Si la pregunta sugiere una proyección, basa tu estimación en las tendencias históricas visibles en los datos. **IMPORTANTE: Siempre aclara que cualquier predicción es una estimación basada en datos pasados y no una garantía ni un consejo financiero.**
-                3.  **Recomendaciones:** Ofrece consejos prácticos y accionables que el usuario pueda considerar para mejorar su situación financiera, siempre fundamentados en el análisis de los datos.
+                3.  **Recomendaciones Accionables:** Ofrece consejos prácticos y accionables que el usuario pueda considerar para mejorar su situación financiera, siempre fundamentados en el análisis de los datos.
                 4.  **Tono:** Mantén un tono profesional, claro, conciso y empático.
                 5.  **Idioma:** Responde siempre en español.
 
