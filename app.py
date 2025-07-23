@@ -29,9 +29,6 @@ def show_login_form():
             if username == USERNAME and password == PASSWORD:
                 st.session_state.logged_in = True
                 st.success("¡Sesión iniciada correctamente!")
-                # Eliminamos st.experimental_rerun()
-                # Streamlit detectará el cambio en st.session_state.logged_in
-                # y recargará la app automáticamente en el siguiente ciclo.
             else:
                 st.error("Usuario o contraseña incorrectos.")
 
@@ -41,6 +38,13 @@ if not st.session_state.logged_in:
 else:
     # --- El resto de tu código de la aplicación Streamlit va aquí ---
 
+    # --- AGREGAR LOGO DE LA EMPRESA ---
+    # Asegúrate de que 'logo_high_resolution.jpg' esté en la misma carpeta que app.py
+    try:
+        st.image("logo_high_resolution.jpg", width=200) # Ajusta el ancho según necesites
+    except FileNotFoundError:
+        st.warning("No se encontró el archivo 'logo_high_resolution.jpg'. Asegúrate de que esté en la misma carpeta.")
+    
     # --- CREDENCIALES GOOGLE DESDE SECRETS ---
     try:
         creds_dict = json.loads(st.secrets["GOOGLE_CREDENTIALS"])
