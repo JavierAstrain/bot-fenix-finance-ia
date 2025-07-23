@@ -1,8 +1,3 @@
-if "OPENROUTER_API_KEY" in st.secrets:
-    st.success("✅ API Key cargada correctamente.")
-else:
-    st.error("❌ API Key no encontrada en secrets.")
-
 import streamlit as st
 import pandas as pd
 import gspread
