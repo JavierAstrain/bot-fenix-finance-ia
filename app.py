@@ -31,6 +31,11 @@ try:
     df["Fecha"] = pd.to_datetime(df["Fecha"], errors="coerce")
     df["Monto Facturado"] = pd.to_numeric(df["Monto Facturado"], errors="coerce")
 
+    # --- IMPORTANTE: Si tu DataFrame tiene una columna para 'particular' y 'seguro',
+    # asegúrate de que su nombre sea reconocido por Gemini en el prompt.
+    # Por ejemplo, si la columna se llama 'TipoCliente', asegúrate de que Gemini la pueda identificar.
+    # df["TipoCliente"] = df["TipoCliente"].astype(str) # Descomenta y ajusta si tienes esta columna
+
     # Eliminar filas con valores NaN en columnas críticas para el análisis o gráficos
     df.dropna(subset=["Fecha", "Monto Facturado"], inplace=True)
 
@@ -62,19 +67,26 @@ try:
                     "parts": [
                         {
                             "text": f"""Analiza la siguiente pregunta del usuario y determina si solicita un gráfico.
-                            Si es así, extrae el tipo de gráfico, las columnas para los ejes X e Y, y cualquier filtro de fecha o valor.
+                            Si es así, extrae el tipo de gráfico, las columnas para los ejes X e Y, una columna para colorear/agrupar (si se pide una segmentación), y cualquier filtro de fecha o valor.
                             Si no es una solicitud de gráfico, marca 'is_chart_request' como false.
 
-                            Datos disponibles y sus columnas:
+                            **Columnas de datos disponibles y sus tipos:**
                             - 'Fecha' (tipo fecha)
                             - 'Monto Facturado' (tipo numérico)
+                            - **IMPORTANTE:** Si tu hoja de cálculo tiene una columna con valores como 'particular' y 'seguro' (por ejemplo, 'TipoCliente' o 'Segmento'), menciónala aquí para que Gemini la pueda usar como 'color_column'. Si no existe, omítela.
 
-                            Ejemplos de cómo mapear la intención:
-                            - "evolución de ventas del año 2025": chart_type='line', x_axis='Fecha', y_axis='Monto Facturado', filter_column='Fecha', filter_value='2025'
-                            - "ventas por mes": chart_type='bar', x_axis='Fecha', y_axis='Monto Facturado', filter_column='', filter_value=''
-                            - "gráfico de barras de montos facturados": chart_type='bar', x_axis='Fecha', y_axis='Monto Facturado', filter_column='', filter_value=''
+                            **Consideraciones para la respuesta:**
+                            - Para gráficos de evolución (línea), la columna del eje X debe ser 'Fecha'.
+                            - Para gráficos de barras o de línea que muestren evolución, los datos del eje Y ('Monto Facturado') a menudo necesitan ser sumados por la unidad de tiempo del eje X (ej: por mes, por año).
+                            - Si el usuario pide "separado por X", "por tipo de Y", o "por categoría Z", identifica la columna correspondiente para 'color_column'. Si no hay una columna obvia en los datos para esa segmentación, deja 'color_column' vacío.
 
-                            Pregunta del usuario: "{pregunta}"
+                            **Ejemplos de cómo mapear la intención:**
+                            - "evolución de ventas del año 2025": chart_type='line', x_axis='Fecha', y_axis='Monto Facturado', filter_column='Fecha', filter_value='2025', color_column=''
+                            - "ventas por mes": chart_type='bar', x_axis='Fecha', y_axis='Monto Facturado', filter_column='', filter_value='', color_column=''
+                            - "gráfico de barras de montos facturados por tipo de cliente": chart_type='bar', x_axis='TipoCliente', y_axis='Monto Facturado', filter_column='', filter_value='', color_column='TipoCliente'
+                            - "creame un grafico con la evolucion de ventas de 2025 separado por particular y seguro": chart_type='line', x_axis='Fecha', y_axis='Monto Facturado', filter_column='Fecha', filter_value='2025', color_column='TipoCliente' (asumiendo 'TipoCliente' existe y contiene 'particular' y 'seguro')
+
+                            **Pregunta del usuario:** "{pregunta}"
                             """
                         }
                     ]
@@ -102,6 +114,10 @@ try:
                             "type": "STRING",
                             "description": "Nombre de la columna para el eje Y (ej: 'Monto Facturado'). Vacío si no es gráfico."
                         },
+                        "color_column": {
+                            "type": "STRING",
+                            "description": "Nombre de la columna para colorear/agrupar (ej: 'TipoCliente'). Vacío si no se pide segmentación o la columna no existe."
+                        },
                         "filter_column": {
                             "type": "STRING",
                             "description": "Columna para filtrar (ej: 'Fecha'). Vacío si no hay filtro."
@@ -115,29 +131,29 @@ try:
                             "description": "Respuesta conversacional si se genera un gráfico. Vacío si no es gráfico."
                         }
                     },
-                    "required": ["is_chart_request", "chart_type", "x_axis", "y_axis", "filter_column", "filter_value", "summary_response"]
+                    "required": ["is_chart_request", "chart_type", "x_axis", "y_axis", "color_column", "filter_column", "filter_value", "summary_response"]
                 }
             }
         }
 
         try:
-            with st.spinner("Analizando su solicitud..."):
+            with st.spinner("Analizando su solicitud y preparando el gráfico..."):
                 chart_response = requests.post(api_url, headers={"Content-Type": "application/json"}, json=chart_detection_payload)
-                chart_data = json.loads(chart_response.json()["candidates"][0]["content"]["parts"][0]["text"])
+                chart_data_raw = chart_response.json()["candidates"][0]["content"]["parts"][0]["text"]
+                chart_data = json.loads(chart_data_raw) # Parsear el JSON
 
             if chart_data.get("is_chart_request"):
                 st.success(chart_data.get("summary_response", "Aquí tienes el gráfico solicitado:"))
 
                 filtered_df = df.copy()
+
                 # Aplicar filtro si existe
                 if chart_data["filter_column"] and chart_data["filter_value"]:
                     if chart_data["filter_column"] == "Fecha":
                         try:
-                            # Intentar filtrar por año
                             year_to_filter = int(chart_data["filter_value"])
                             filtered_df = filtered_df[filtered_df["Fecha"].dt.year == year_to_filter]
                         except ValueError:
-                            # Si no es un año, intentar filtrar por mes (ej. "Enero")
                             month_name = chart_data["filter_value"].lower()
                             month_map = {
                                 'enero': 1, 'febrero': 2, 'marzo': 3, 'abril': 4,
@@ -156,32 +172,74 @@ try:
                 if filtered_df.empty:
                     st.warning("No hay datos para generar el gráfico con los filtros especificados.")
                 else:
-                    # Generar el gráfico con Plotly
+                    x_col = chart_data.get("x_axis")
+                    y_col = chart_data.get("y_axis")
+                    color_col = chart_data.get("color_column")
+
+                    # Validar que las columnas existan en el DataFrame antes de usarlas
+                    if x_col not in filtered_df.columns:
+                        st.error(f"La columna '{x_col}' para el eje X no se encontró en los datos.")
+                        st.stop()
+                    if y_col not in filtered_df.columns:
+                        st.error(f"La columna '{y_col}' para el eje Y no se encontró en los datos.")
+                        st.stop()
+                    if color_col and color_col not in filtered_df.columns:
+                        st.warning(f"La columna '{color_col}' para segmentación no se encontró en los datos. El gráfico no se segmentará.")
+                        color_col = None # Ignorar la columna si no existe
+
+                    # --- Agregación y ordenamiento para gráficos de línea/barras ---
+                    # Esto es crucial para que los gráficos de evolución se vean bien
+                    group_cols = [x_col]
+                    if color_col:
+                        group_cols.append(color_col)
+
+                    # Para agrupar correctamente por fecha (ej. por día, por mes, etc.)
+                    # Creamos una columna temporal para la agrupación si el eje X es 'Fecha'
+                    if x_col == "Fecha":
+                        # Agrupar por el período que tenga sentido, por ejemplo, por mes si los datos son diarios
+                        # o por día si se quiere más granularidad. Aquí agrupamos por mes para una evolución más suave.
+                        aggregated_df = filtered_df.copy()
+                        aggregated_df['Fecha_Agrupada'] = aggregated_df['Fecha'].dt.to_period('M').dt.to_timestamp()
+                        group_cols_for_agg = ['Fecha_Agrupada']
+                        if color_col:
+                            group_cols_for_agg.append(color_col)
+                        
+                        aggregated_df = aggregated_df.groupby(group_cols_for_agg)[y_col].sum().reset_index()
+                        aggregated_df = aggregated_df.sort_values(by='Fecha_Agrupada')
+                        x_col_for_plot = 'Fecha_Agrupada'
+                    else:
+                        # Para otras columnas que no son fecha, simplemente agrupar por ellas
+                        aggregated_df = filtered_df.groupby(group_cols)[y_col].sum().reset_index()
+                        aggregated_df = aggregated_df.sort_values(by=x_col) # Ordenar por la columna X
+                        x_col_for_plot = x_col
+
+
                     fig = None
                     if chart_data["chart_type"] == "line":
-                        fig = px.line(filtered_df, x=chart_data["x_axis"], y=chart_data["y_axis"],
-                                      title=f"Evolución de {chart_data['y_axis']} por {chart_data['x_axis']}",
-                                      labels={chart_data["x_axis"]: chart_data["x_axis"], chart_data["y_axis"]: chart_data["y_axis"]})
+                        fig = px.line(aggregated_df, x=x_col_for_plot, y=y_col, color=color_col,
+                                      title=f"Evolución de {y_col} por {x_col}",
+                                      labels={x_col_for_plot: x_col, y_col: y_col})
                     elif chart_data["chart_type"] == "bar":
-                        fig = px.bar(filtered_df, x=chart_data["x_axis"], y=chart_data["y_axis"],
-                                     title=f"Distribución de {chart_data['y_axis']} por {chart_data['x_axis']}",
-                                     labels={chart_data["x_axis"]: chart_data["x_axis"], chart_data["y_axis"]: chart_data["y_axis"]})
+                        fig = px.bar(aggregated_df, x=x_col_for_plot, y=y_col, color=color_col,
+                                     title=f"Distribución de {y_col} por {x_col}",
+                                     labels={x_col_for_plot: x_col, y_col: y_col})
                     elif chart_data["chart_type"] == "pie":
-                        # Para gráficos de pastel, necesitamos agrupar los datos
-                        # Asumimos que x_axis es la categoría y y_axis el valor a sumar
-                        grouped_df = filtered_df.groupby(chart_data["x_axis"])[chart_data["y_axis"]].sum().reset_index()
-                        fig = px.pie(grouped_df, names=chart_data["x_axis"], values=chart_data["y_axis"],
-                                     title=f"Proporción de {chart_data['y_axis']} por {chart_data['x_axis']}")
+                        # Para gráficos de pastel, no se usa x_col_for_plot, sino x_col original como names
+                        # y se agrupa por x_col y se suma y_col
+                        # No se agrega color_col directamente en pie, se usa names y values
+                        grouped_pie_df = filtered_df.groupby(x_col)[y_col].sum().reset_index()
+                        fig = px.pie(grouped_pie_df, names=x_col, values=y_col,
+                                     title=f"Proporción de {y_col} por {x_col}")
                     elif chart_data["chart_type"] == "scatter":
-                        fig = px.scatter(filtered_df, x=chart_data["x_axis"], y=chart_data["y_axis"],
-                                         title=f"Relación entre {chart_data['x_axis']} y {chart_data['y_axis']}",
-                                         labels={chart_data["x_axis"]: chart_data["x_axis"], chart_data["y_axis"]: chart_data["y_axis"]})
+                        # Scatter plots a menudo no necesitan agregación si se quiere ver cada punto de dato
+                        fig = px.scatter(filtered_df, x=x_col, y=y_col, color=color_col,
+                                         title=f"Relación entre {x_col} y {y_col}",
+                                         labels={x_col: x_col, y_col: y_col})
 
                     if fig:
                         st.plotly_chart(fig, use_container_width=True)
                     else:
                         st.warning("No se pudo generar el tipo de gráfico solicitado o los datos no son adecuados.")
-
             else: # Si no es una solicitud de gráfico, procede con el análisis de texto
                 # --- SEGUNDA LLAMADA A GEMINI: ANÁLISIS Y RECOMENDACIONES (como antes) ---
                 contexto_analisis = f"""Eres un asistente de IA especializado en análisis financiero. Tu misión es ayudar al usuario a interpretar sus datos, identificar tendencias, predecir posibles escenarios (con cautela) y ofrecer recomendaciones estratégicas.
@@ -243,4 +301,5 @@ try:
 except Exception as e:
     st.error("❌ No se pudo cargar la hoja de cálculo.")
     st.exception(e)
+
 
