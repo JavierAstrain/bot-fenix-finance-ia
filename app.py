@@ -48,40 +48,59 @@ Ahora responde esta pregunta de forma clara y concreta en español:
 
 {pregunta}
 """
-        # --- Asegúrate de que OPENROUTER_API_KEY esté configurada en .streamlit/secrets.toml ---
+        # --- Configuración para la API de Google Gemini ---
         try:
-            openrouter_api_key = st.secrets["OPENROUTER_API_KEY"]
+            # Asegúrate de que GOOGLE_GEMINI_API_KEY esté configurada en .streamlit/secrets.toml
+            google_gemini_api_key = st.secrets["GOOGLE_GEMINI_API_KEY"]
         except KeyError:
-            st.error("❌ OPENROUTER_API_KEY no encontrada en st.secrets. Por favor, configúrala en .streamlit/secrets.toml")
+            st.error("❌ GOOGLE_GEMINI_API_KEY no encontrada en st.secrets. Por favor, configúrala en .streamlit/secrets.toml")
             st.stop() # Detiene la ejecución si la clave no está presente
 
-        headers = {
-            "Authorization": f"Bearer {openrouter_api_key}", # Aquí se usa la clave API
-            "Content-Type": "application/json"
+        # URL de la API de Gemini (usando gemini-2.0-flash para la capa gratuita)
+        api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={google_gemini_api_key}"
+
+        # El formato del payload (cuerpo de la solicitud) para Gemini
+        payload = {
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [
+                        {"text": contexto} # El contexto va aquí como parte del mensaje del usuario
+                    ]
+                }
+            ],
+            "generationConfig": {
+                "temperature": 0.3 # La temperatura se configura aquí
+            }
         }
 
-        payload = {
-            "model": "mistralai/mistral-7b-instruct",
-            "messages": [{"role": "user", "content": contexto}],
-            "temperature": 0.3
+        headers = {
+            "Content-Type": "application/json"
+            # Para Gemini, la clave API va en la URL, no se necesita "Authorization: Bearer" en los headers
         }
 
         try:
-            with st.spinner("Consultando IA..."):
+            with st.spinner("Consultando IA de Google Gemini..."):
                 response = requests.post(
-                    "https://openrouter.ai/api/v1/chat/completions",
+                    api_url,
                     headers=headers,
                     json=payload
                 )
                 if response.status_code == 200:
-                    content = response.json()["choices"][0]["message"]["content"]
-                    st.success("🤖 Respuesta:")
-                    st.write(content)
+                    # La estructura de la respuesta de Gemini es diferente a la de OpenRouter
+                    response_data = response.json()
+                    if response_data and "candidates" in response_data and len(response_data["candidates"]) > 0:
+                        content = response_data["candidates"][0]["content"]["parts"][0]["text"]
+                        st.success("🤖 Respuesta de Gemini:")
+                        st.write(content)
+                    else:
+                        st.error("❌ No se recibió una respuesta válida de Gemini.")
+                        st.text(response.text) # Muestra la respuesta completa para depuración
                 else:
-                    st.error(f"❌ Error al consultar OpenRouter: {response.status_code}")
-                    st.text(response.text)
+                    st.error(f"❌ Error al consultar Gemini API: {response.status_code}")
+                    st.text(response.text) # Muestra el texto de la respuesta para depuración
         except Exception as e:
-            st.error("❌ Falló la conexión con OpenRouter.")
+            st.error("❌ Falló la conexión con la API de Gemini.")
             st.exception(e)
 
 except Exception as e:
