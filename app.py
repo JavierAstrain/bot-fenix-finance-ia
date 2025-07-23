@@ -6,10 +6,19 @@ import requests
 from google.oauth2.service_account import Credentials
 
 # --- CREDENCIALES GOOGLE DESDE SECRETS ---
-creds_dict = json.loads(st.secrets["GOOGLE_CREDENTIALS"])
-scope = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
-creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
-client = gspread.authorize(creds)
+try:
+    creds_dict = json.loads(st.secrets["GOOGLE_CREDENTIALS"])
+    scope = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
+    creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
+    client = gspread.authorize(creds)
+except KeyError:
+    st.error("❌ GOOGLE_CREDENTIALS no encontradas en st.secrets. Asegúrate de configurarlas correctamente.")
+    st.stop()
+except Exception as e:
+    st.error("❌ Error al cargar las credenciales de Google.")
+    st.exception(e)
+    st.stop()
+
 
 # --- CARGA DATOS DESDE GOOGLE SHEET ---
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1mXxUmIQ44rd9escHOee2w0LxGs4MVNXaPrUeqj4USpk"
@@ -39,9 +48,15 @@ Ahora responde esta pregunta de forma clara y concreta en español:
 
 {pregunta}
 """
+        # --- Asegúrate de que OPENROUTER_API_KEY esté configurada en .streamlit/secrets.toml ---
+        try:
+            openrouter_api_key = st.secrets["OPENROUTER_API_KEY"]
+        except KeyError:
+            st.error("❌ OPENROUTER_API_KEY no encontrada en st.secrets. Por favor, configúrala en .streamlit/secrets.toml")
+            st.stop() # Detiene la ejecución si la clave no está presente
 
         headers = {
-            "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}",
+            "Authorization": f"Bearer {openrouter_api_key}", # Aquí se usa la clave API
             "Content-Type": "application/json"
         }
 
@@ -72,3 +87,4 @@ Ahora responde esta pregunta de forma clara y concreta en español:
 except Exception as e:
     st.error("❌ No se pudo cargar la hoja de cálculo.")
     st.exception(e)
+
