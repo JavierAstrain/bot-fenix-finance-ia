@@ -1,3 +1,4 @@
+st.success("✅ KEY CARGADA: " + st.secrets["OPENROUTER_API_KEY"][:10] + "...")
 import streamlit as st
 import pandas as pd
 import gspread
