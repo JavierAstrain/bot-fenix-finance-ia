@@ -54,6 +54,41 @@ try:
     st.subheader("📊 Vista previa:")
     st.dataframe(df.head(10))
 
+    # --- NUEVO: Sección de "Qué puedes preguntar" ---
+    with st.expander("💡 ¿Qué puedes preguntar y cuáles son los alcances de este bot?"):
+        st.write("""
+        Este bot de Fénix Finance IA está diseñado para ayudarte a analizar tus datos financieros. Puedes:
+
+        * **Consultar Datos Específicos:**
+            * Ej: "¿Cuál fue el Monto Facturado total en el mes de marzo de 2025?"
+            * Ej: "¿Cuántas transacciones hubo en el año 2024?" (si tienes una columna de ID de transacción)
+
+        * **Generar Gráficos Interactivos:**
+            * **Evolución:** "Hazme un gráfico de línea con la evolución de Monto Facturado en 2023."
+            * **Comparación:** "Muestra un gráfico de barras del Monto Facturado por mes."
+            * **Segmentación:** "Crea un gráfico de evolución de ventas de 2025 separado por TipoCliente." (Requiere la columna 'TipoCliente' en tus datos)
+            * **Rangos de Fecha:** "Gráfico de Monto Facturado entre 2024-01-15 y 2024-04-30."
+            * **Tipos de Gráfico:** Línea, barras, pastel, dispersión.
+
+        * **Realizar Análisis y Obtener Perspectivas:**
+            * Ej: "¿Qué tendencias observas en mis Montos Facturados?"
+            * Ej: "¿Hubo alguna anomalía en las ventas del último trimestre?"
+            * Ej: "Dame un análisis de los datos de 2024."
+
+        * **Hacer Estimaciones y Proyecciones (con cautela):**
+            * Ej: "¿Podrías proyectar el Monto Facturado para el próximo mes basándote en los datos históricos?"
+            * **Alcance:** Las proyecciones se basan **únicamente** en los datos históricos proporcionados y son estimaciones. **No son consejos financieros garantizados.**
+
+        * **Recibir Recomendaciones Estratégicas:**
+            * Ej: "¿Qué recomendaciones me darías para mejorar mi Monto Facturado?"
+            * **Alcance:** Las recomendaciones se derivan del análisis de tus datos y buscan ofrecer ideas accionables. **Siempre consulta con un profesional financiero antes de tomar decisiones importantes.**
+
+        **Importante:**
+        * El bot solo puede analizar la información presente en tu hoja de cálculo.
+        * Asegúrate de que los nombres de las columnas que mencionas en tus preguntas (ej. 'Fecha', 'Monto Facturado', 'TipoCliente') coincidan con los de tu hoja.
+        * Para análisis avanzados o gráficos segmentados, es necesario que las columnas relevantes existan en tus datos.
+        """)
+
     st.subheader("💬 ¿Qué deseas saber?")
     pregunta = st.text_input("Ej: ¿Cuáles fueron las ventas del año 2025? o Hazme un gráfico de la evolución de ventas del 2025.")
 
@@ -376,5 +411,3 @@ try:
 except Exception as e:
     st.error("❌ No se pudo cargar la hoja de cálculo.")
     st.exception(e)
-
-
