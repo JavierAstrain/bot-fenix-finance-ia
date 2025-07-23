@@ -1,3 +1,5 @@
+api = st.secrets["openrouter"]["OPENROUTER_API_KEY"]
+st.write("🔑 Clave cargada:", api[:10] + "..." )  # solo muestra principio
 import streamlit as st
 import pandas as pd
 import gspread
