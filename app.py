@@ -50,6 +50,7 @@ payload = {
     "temperature": 0.3
 }
 
+
         try:
             with st.spinner("Consultando IA..."):
                 response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload)
