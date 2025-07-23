@@ -32,14 +32,21 @@ try:
     df["Fecha"] = pd.to_datetime(df["Fecha"], errors="coerce")
     df["Monto Facturado"] = pd.to_numeric(df["Monto Facturado"], errors="coerce")
 
-    # --- IMPORTANTE: Si tu DataFrame tiene una columna para 'particular' y 'seguro' (ej. 'TipoCliente'),
-    # asegúrate de que su nombre sea reconocido por Gemini en el prompt.
-    # Por ejemplo, si la columna se llama 'TipoCliente', descomenta y ajusta:
-    # if 'TipoCliente' in df.columns:
-    #     df["TipoCliente"] = df["TipoCliente"].astype(str)
-
     # Eliminar filas con valores NaN en columnas críticas para el análisis o gráficos
     df.dropna(subset=["Fecha", "Monto Facturado"], inplace=True)
+
+    # --- Generar información dinámica de columnas para el prompt de Gemini ---
+    available_columns_info = []
+    for col in df.columns:
+        col_type = df[col].dtype
+        if pd.api.types.is_datetime64_any_dtype(df[col]):
+            available_columns_info.append(f"- '{col}' (tipo fecha, formato YYYY-MM-DD)")
+        elif pd.api.types.is_numeric_dtype(df[col]):
+            available_columns_info.append(f"- '{col}' (tipo numérico)")
+        else:
+            available_columns_info.append(f"- '{col}' (tipo texto)")
+    available_columns_str = "\n".join(available_columns_info)
+
 
     # --- UI ---
     st.title("🤖 Bot Fénix Finance IA")
@@ -73,16 +80,15 @@ try:
                             Si no es una solicitud de gráfico, marca 'is_chart_request' como false.
 
                             **Columnas de datos disponibles y sus tipos:**
-                            - 'Fecha' (tipo fecha, formato YYYY-MM-DD)
-                            - 'Monto Facturado' (tipo numérico)
-                            - **IMPORTANTE:** Si tu hoja de cálculo tiene una columna con valores como 'particular' y 'seguro' (ej. 'TipoCliente' o 'Segmento'), inclúyela aquí para que Gemini la pueda usar como 'color_column' o para 'additional_filters'. Si no existe, omítela. Ejemplo: 'TipoCliente' (tipo texto).
+                            {available_columns_str}
 
                             **Consideraciones para la respuesta:**
-                            - Para gráficos de evolución (línea), la columna del eje X debe ser 'Fecha'.
-                            - Para gráficos de barras o de línea que muestren evolución, los datos del eje Y ('Monto Facturado') a menudo necesitan ser sumados por la unidad de tiempo del eje X (ej: por mes, por año).
+                            - Para gráficos de evolución (línea), la columna del eje X debe ser una columna de tipo 'fecha'.
+                            - Para gráficos de barras o de línea que muestren evolución, los datos del eje Y (ej: 'Monto Facturado') a menudo necesitan ser sumados por la unidad de tiempo del eje X (ej: por mes, por año).
                             - Si el usuario pide "separado por X", "por tipo de Y", o "por categoría Z", identifica la columna correspondiente para 'color_column'. Si no hay una columna obvia en los datos para esa segmentación, deja 'color_column' vacío.
                             - Si el usuario pide un rango de fechas (ej. "entre enero y marzo", "del 15 de marzo al 30 de abril"), extrae `start_date` y `end_date` en formato YYYY-MM-DD.
                             - Si el usuario pide filtrar por otra columna (ej. "solo para clientes particulares"), extrae esto en `additional_filters` como una lista de objetos.
+                            - **IMPORTANTE:** Solo usa los nombres de columna que están explícitamente listados en "Columnas de datos disponibles". Si el usuario pide una columna que no existe, deja el campo vacío.
 
                             **Ejemplos de cómo mapear la intención (en formato JSON válido):**
                             - "evolución de ventas del año 2025": {{"is_chart_request": true, "chart_type": "line", "x_axis": "Fecha", "y_axis": "Monto Facturado", "filter_column": "Fecha", "filter_value": "2025", "color_column": "", "start_date": "", "end_date": "", "additional_filters": [], "summary_response": "Aquí tienes la evolución de ventas para el año 2025:"}}
@@ -91,6 +97,7 @@ try:
                             - "creame un grafico con la evolucion de ventas de 2025 separado por particular y seguro": {{"is_chart_request": true, "chart_type": "line", "x_axis": "Fecha", "y_axis": "Monto Facturado", "filter_column": "Fecha", "filter_value": "2025", "color_column": "TipoCliente", "start_date": "", "end_date": "", "additional_filters": [], "summary_response": "Aquí tienes la evolución de ventas de 2025, separada por particular y seguro:"}}
                             - "ventas entre 2024-03-01 y 2024-06-30": {{"is_chart_request": true, "chart_type": "line", "x_axis": "Fecha", "y_axis": "Monto Facturado", "filter_column": "", "filter_value": "", "color_column": "", "start_date": "2024-03-01", "end_date": "2024-06-30", "additional_filters": [], "summary_response": "Aquí tienes la evolución de ventas entre marzo y junio de 2024:"}}
                             - "ventas de particular en el primer trimestre de 2025": {{"is_chart_request": true, "chart_type": "line", "x_axis": "Fecha", "y_axis": "Monto Facturado", "filter_column": "Fecha", "filter_value": "2025", "color_column": "", "start_date": "2025-01-01", "end_date": "2025-03-31", "additional_filters": [{{"column": "TipoCliente", "value": "particular"}}], "summary_response": "Aquí tienes las ventas de clientes particulares en el primer trimestre de 2025:"}}
+                            - "analisis de mis ingresos": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "color_column": "", "filter_column": "", "filter_value": "", "start_date": "", "end_date": "", "additional_filters": [], "summary_response": ""}}
 
                             **Pregunta del usuario:** "{pregunta}"
                             """
@@ -164,10 +171,8 @@ try:
         try:
             with st.spinner("Analizando su solicitud y preparando el gráfico/análisis..."):
                 chart_response = requests.post(api_url, headers={"Content-Type": "application/json"}, json=chart_detection_payload)
-                # Verificar que la respuesta sea exitosa antes de intentar parsear JSON
                 if chart_response.status_code == 200:
                     chart_response_json = chart_response.json()
-                    # Asegurarse de que existan los 'candidates' y 'content' esperados
                     if chart_response_json and "candidates" in chart_response_json and \
                        len(chart_response_json["candidates"]) > 0 and \
                        "content" in chart_response_json["candidates"][0] and \
@@ -176,7 +181,7 @@ try:
 
                         chart_data_raw = chart_response_json["candidates"][0]["content"]["parts"][0]["text"]
                         try:
-                            chart_data = json.loads(chart_data_raw) # Parsear el JSON
+                            chart_data = json.loads(chart_data_raw)
                         except json.JSONDecodeError as e:
                             st.error(f"❌ Error al procesar la respuesta JSON del modelo. El modelo devolvió JSON inválido: {e}")
                             st.text(f"Respuesta cruda del modelo: {chart_data_raw}")
@@ -190,8 +195,6 @@ try:
                     st.text(chart_response.text)
                     st.stop()
 
-                # El resto del código para generar el gráfico o el análisis de texto
-                # (Esta parte es la misma que en la versión anterior, no necesita cambios)
                 if chart_data.get("is_chart_request"):
                     st.success(chart_data.get("summary_response", "Aquí tienes el gráfico solicitado:"))
 
@@ -215,7 +218,11 @@ try:
                                 else:
                                     st.warning(f"No se pudo aplicar el filtro de fecha '{chart_data['filter_value']}'.")
                         else:
-                            filtered_df = filtered_df[filtered_df[chart_data["filter_column"]].astype(str).str.contains(chart_data["filter_value"], case=False, na=False)]
+                            if chart_data["filter_column"] in filtered_df.columns:
+                                filtered_df = filtered_df[filtered_df[chart_data["filter_column"]].astype(str).str.contains(chart_data["filter_value"], case=False, na=False)]
+                            else:
+                                st.warning(f"La columna '{chart_data['filter_column']}' para filtro principal no se encontró.")
+
 
                     # --- Aplicar filtros por rango de fechas (start_date, end_date) ---
                     if chart_data.get("start_date"):
@@ -252,13 +259,13 @@ try:
 
                         # Validar que las columnas existan en el DataFrame antes de usarlas
                         if x_col not in filtered_df.columns:
-                            st.error(f"La columna '{x_col}' para el eje X no se encontró en los datos.")
+                            st.error(f"La columna '{x_col}' para el eje X no se encontró en los datos. Por favor, revisa el nombre de la columna en tu hoja de cálculo.")
                             st.stop()
                         if y_col not in filtered_df.columns:
-                            st.error(f"La columna '{y_col}' para el eje Y no se encontró en los datos.")
+                            st.error(f"La columna '{y_col}' para el eje Y no se encontró en los datos. Por favor, revisa el nombre de la columna en tu hoja de cálculo.")
                             st.stop()
                         if color_col and color_col not in filtered_df.columns:
-                            st.warning(f"La columna '{color_col}' para segmentación no se encontró en los datos. El gráfico no se segmentará.")
+                            st.warning(f"La columna '{color_col}' para segmentación no se encontró en los datos. El gráfico no se segmentará. Por favor, revisa el nombre de la columna en tu hoja de cálculo.")
                             color_col = None # Ignorar la columna si no existe
 
                         # --- Agregación y ordenamiento para gráficos de línea/barras ---
@@ -269,7 +276,6 @@ try:
                         if x_col == "Fecha":
                             aggregated_df = filtered_df.copy()
                             # Agrupar por el período que tenga sentido, por ejemplo, por mes
-                            # Usamos 'M' para mes, 'D' para día, 'Q' para trimestre, 'Y' para año
                             aggregated_df['Fecha_Agrupada'] = aggregated_df['Fecha'].dt.to_period('M').dt.to_timestamp()
                             group_cols_for_agg = ['Fecha_Agrupada']
                             if color_col:
@@ -314,10 +320,13 @@ try:
 
                     {df.head(20).to_string(index=False)}
 
+                    **Columnas de datos disponibles y sus tipos:**
+                    {available_columns_str}
+
                     Basándote **exclusivamente** en la información proporcionada y en tu rol de analista financiero, por favor, responde a la siguiente pregunta del usuario.
 
                     Al formular tu respuesta, considera lo siguiente:
-                    1.  **Análisis Profundo:** Busca patrones, anomalías, crecimientos o decrecimientos significativos. Identifica y destaca cualquier punto clave (máximos, mínimos, cambios abruptos) relevantes para la pregunta.
+                    1.  **Análisis Profundo:** Busca patrones, anomalías, crecimientos o decrecimientos significativos. Identifica y destaca cualquier punto clave (máximos, mínimos, cambios abruptos) relevantes para la pregunta. Si es posible, menciona métricas clave o porcentajes de cambio.
                     2.  **Predicción (si aplica):** Si la pregunta sugiere una proyección, basa tu estimación en las tendencias históricas visibles en los datos. **IMPORTANTE: Siempre aclara que cualquier predicción es una estimación basada en datos pasados y no una garantía ni un consejo financiero.**
                     3.  **Recomendaciones Accionables:** Ofrece consejos prácticos y accionables que el usuario pueda considerar para mejorar su situación financiera, siempre fundamentados en el análisis de los datos.
                     4.  **Tono:** Mantén un tono profesional, claro, conciso y empático.
@@ -367,4 +376,5 @@ try:
 except Exception as e:
     st.error("❌ No se pudo cargar la hoja de cálculo.")
     st.exception(e)
+
 
