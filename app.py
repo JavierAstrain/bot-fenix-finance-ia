@@ -45,7 +45,7 @@ Ahora responde esta pregunta de forma clara y concreta en español:
         }
 
         payload = {
-            "model": "openchat/openchat-7b",
+            "model": "openrouter/cinematika-7b",
             "messages": [{"role": "user", "content": contexto}],
             "temperature": 0.3
         }
