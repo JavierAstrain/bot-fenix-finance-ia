@@ -40,43 +40,52 @@ try:
     pregunta = st.text_input("Ej: ¿Cuáles fueron las ventas del año 2025?")
 
     if pregunta:
-        contexto = f"""Estos son datos financieros (primeras filas):
+        # --- Contexto mejorado para análisis, predicciones y recomendaciones ---
+        contexto = f"""Eres un asistente de IA especializado en análisis financiero. Tu misión es ayudar al usuario a interpretar sus datos, identificar tendencias, predecir posibles escenarios (con cautela) y ofrecer recomendaciones estratégicas.
 
-{df.head(20).to_string(index=False)}
+        Aquí están las **primeras 20 filas** de los datos financieros disponibles para tu análisis:
 
-Ahora responde esta pregunta de forma clara y concreta en español:
+        {df.head(20).to_string(index=False)}
 
-{pregunta}
-"""
+        Basándote **exclusivamente** en la información proporcionada y en tu rol de analista financiero, por favor, responde a la siguiente pregunta del usuario.
+
+        Al formular tu respuesta, considera lo siguiente:
+        1.  **Análisis:** Busca patrones, anomalías, crecimientos o decrecimientos significativos.
+        2.  **Predicción (si aplica):** Si la pregunta sugiere una proyección, basa tu estimación en las tendencias históricas visibles en los datos. **IMPORTANTE: Siempre aclara que cualquier predicción es una estimación basada en datos pasados y no una garantía ni un consejo financiero.**
+        3.  **Recomendaciones:** Ofrece consejos prácticos y accionables que el usuario pueda considerar para mejorar su situación financiera, siempre fundamentados en el análisis de los datos.
+        4.  **Tono:** Mantén un tono profesional, claro, conciso y empático.
+        5.  **Idioma:** Responde siempre en español.
+
+        ---
+        Pregunta del usuario:
+        {pregunta}
+        """
+
         # --- Configuración para la API de Google Gemini ---
         try:
-            # Asegúrate de que GOOGLE_GEMINI_API_KEY esté configurada en .streamlit/secrets.toml
             google_gemini_api_key = st.secrets["GOOGLE_GEMINI_API_KEY"]
         except KeyError:
             st.error("❌ GOOGLE_GEMINI_API_KEY no encontrada en st.secrets. Por favor, configúrala en .streamlit/secrets.toml")
-            st.stop() # Detiene la ejecución si la clave no está presente
+            st.stop()
 
-        # URL de la API de Gemini (usando gemini-2.0-flash para la capa gratuita)
         api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={google_gemini_api_key}"
 
-        # El formato del payload (cuerpo de la solicitud) para Gemini
         payload = {
             "contents": [
                 {
                     "role": "user",
                     "parts": [
-                        {"text": contexto} # El contexto va aquí como parte del mensaje del usuario
+                        {"text": contexto}
                     ]
                 }
             ],
             "generationConfig": {
-                "temperature": 0.3 # La temperatura se configura aquí
+                "temperature": 0.3
             }
         }
 
         headers = {
             "Content-Type": "application/json"
-            # Para Gemini, la clave API va en la URL, no se necesita "Authorization: Bearer" en los headers
         }
 
         try:
@@ -87,7 +96,6 @@ Ahora responde esta pregunta de forma clara y concreta en español:
                     json=payload
                 )
                 if response.status_code == 200:
-                    # La estructura de la respuesta de Gemini es diferente a la de OpenRouter
                     response_data = response.json()
                     if response_data and "candidates" in response_data and len(response_data["candidates"]) > 0:
                         content = response_data["candidates"][0]["content"]["parts"][0]["text"]
@@ -95,10 +103,10 @@ Ahora responde esta pregunta de forma clara y concreta en español:
                         st.write(content)
                     else:
                         st.error("❌ No se recibió una respuesta válida de Gemini.")
-                        st.text(response.text) # Muestra la respuesta completa para depuración
+                        st.text(response.text)
                 else:
                     st.error(f"❌ Error al consultar Gemini API: {response.status_code}")
-                    st.text(response.text) # Muestra el texto de la respuesta para depuración
+                    st.text(response.text)
         except Exception as e:
             st.error("❌ Falló la conexión con la API de Gemini.")
             st.exception(e)
