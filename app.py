@@ -29,7 +29,9 @@ def show_login_form():
             if username == USERNAME and password == PASSWORD:
                 st.session_state.logged_in = True
                 st.success("¡Sesión iniciada correctamente!")
-                st.experimental_rerun() # Recargar la app para mostrar el contenido principal
+                # Eliminamos st.experimental_rerun()
+                # Streamlit detectará el cambio en st.session_state.logged_in
+                # y recargará la app automáticamente en el siguiente ciclo.
             else:
                 st.error("Usuario o contraseña incorrectos.")
 
@@ -442,4 +444,3 @@ else:
     except Exception as e:
         st.error("❌ No se pudo cargar la hoja de cálculo.")
         st.exception(e)
-
