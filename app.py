@@ -33,7 +33,7 @@ def show_login_form():
                 st.error("Usuario o contraseña incorrectos.")
 
 # Mostrar el formulario de login si el usuario no ha iniciado sesión
-if not st.session_state.logged_in:
+if not st.session_state.loggedin:
     show_login_form()
 else:
     # --- El resto de tu código de la aplicación Streamlit va aquí ---
@@ -82,8 +82,40 @@ else:
             elif pd.api.types.is_numeric_dtype(df[col]):
                 available_columns_info.append(f"- '{col}' (tipo numérico)")
             else:
-                available_columns_info.append(f"- '{col}' (tipo texto)")
+                # Para columnas de texto, intentar obtener los valores únicos más comunes
+                unique_vals = df[col].dropna().unique()
+                if len(unique_vals) < 10: # Si hay pocos valores únicos, listarlos todos
+                    available_columns_info.append(f"- '{col}' (tipo texto, valores: {', '.join(map(str, unique_vals))})")
+                else: # Si hay muchos, solo mencionar el tipo
+                    available_columns_info.append(f"- '{col}' (tipo texto)")
         available_columns_str = "\n".join(available_columns_info)
+
+        # --- Generar un resumen más completo del DataFrame para Gemini ---
+        df_summary_parts = []
+        df_summary_parts.append("Resumen de la estructura del DataFrame:")
+        df_summary_parts.append(f"Número total de filas: {len(df)}")
+        df_summary_parts.append(f"Número total de columnas: {len(df.columns)}")
+        
+        df_summary_parts.append("\nInformación de Columnas:")
+        for col in df.columns:
+            dtype = df[col].dtype
+            non_null_count = df[col].count()
+            total_count = len(df)
+            null_percentage = (1 - non_null_count / total_count) * 100
+            col_info = f"- Columna '{col}': Tipo '{dtype}', {non_null_count}/{total_count} valores no nulos ({null_percentage:.2f}% nulos)."
+            
+            if pd.api.types.is_numeric_dtype(df[col]):
+                col_info += f" Rango: [{df[col].min():.2f}, {df[col].max():.2f}], Media: {df[col].mean():.2f}"
+            elif pd.api.types.is_datetime64_any_dtype(df[col]):
+                col_info += f" Rango de fechas: [{df[col].min().strftime('%Y-%m-%d')} a {df[col].max().strftime('%Y-%m-%d')}]"
+            elif pd.api.types.is_object_dtype(df[col]) or pd.api.types.is_string_dtype(df[col]):
+                # Para columnas de texto, incluir los 5 valores más frecuentes si hay muchos únicos
+                top_values = df[col].value_counts().nlargest(5).index.tolist()
+                if top_values:
+                    col_info += f" Valores más frecuentes: {', '.join(map(str, top_values))}"
+            df_summary_parts.append(col_info)
+        
+        df_summary_str = "\n".join(df_summary_parts)
 
 
         # --- UI ---
@@ -97,9 +129,11 @@ else:
             st.write("""
             Este bot de Fénix Finance IA está diseñado para ayudarte a analizar tus datos financieros. Puedes:
 
-            * **Consultar Datos Específicos:**
+            * **Consultar Datos Específicos y Generar Tablas:**
                 * Ej: "¿Cuál fue el Monto Facturado total en el mes de marzo de 2025?"
                 * Ej: "¿Cuántas transacciones hubo en el año 2024?" (si tienes una columna de ID de transacción)
+                * Ej: "**Muéstrame una tabla** con los Montos Facturados por cada TipoCliente."
+                * Ej: "**Lista** las 10 transacciones más grandes."
 
             * **Generar Gráficos Interactivos:**
                 * **Evolución:** "Hazme un gráfico de línea con la evolución de Monto Facturado en 2023."
@@ -123,7 +157,7 @@ else:
 
             **Importante:**
             * El bot solo puede analizar la información presente en tu hoja de cálculo.
-            * Asegúrate de que los nombres de las columnas que mencionas en tus preguntas (ej. 'Fecha', 'Monto Facturado', 'TipoCliente') coincidan con los de tu hoja.
+            * Asegúrate de que los nombres de las columnas que mencionas en tus preguntas (ej. 'Fecha', 'Monto Facturado', 'TipoCliente') coincidan **exactamente** con los de tu hoja.
             * Para análisis avanzados o gráficos segmentados, es necesario que las columnas relevantes existan en tus datos.
             """)
 
@@ -190,22 +224,27 @@ else:
 
             api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={google_gemini_api_key}"
 
-            # --- PRIMERA LLAMADA A GEMINI: DETECTAR INTENCIÓN DE GRÁFICO Y EXTRAER PARÁMETROS ---
+            # --- PRIMERA LLAMADA A GEMINI: DETECTAR INTENCIÓN Y EXTRAER PARÁMETROS ---
+            # Ahora el prompt incluye el resumen completo del DataFrame
             chart_detection_payload = {
                 "contents": [
                     {
                         "role": "user",
                         "parts": [
                             {
-                                "text": f"""Analiza la siguiente pregunta del usuario y determina si solicita un gráfico.
-                                Si es así, extrae el tipo de gráfico, las columnas para los ejes X e Y, una columna para colorear/agrupar (si se pide una segmentación), y cualquier filtro de fecha o valor.
-                                Si no es una solicitud de gráfico, marca 'is_chart_request' como false.
+                                "text": f"""Analiza la siguiente pregunta del usuario y determina si solicita un gráfico o una tabla.
+                                Si es así, extrae el tipo de visualización (gráfico o tabla), las columnas para los ejes X e Y (si es gráfico), una columna para colorear/agrupar (si se pide una segmentación), y cualquier filtro de fecha o valor.
+                                Si no es una solicitud de visualización (gráfico/tabla), marca 'is_chart_request' como false y 'chart_type' como 'none'.
 
                                 **Prioriza 'is_chart_request: false' si la pregunta busca una respuesta textual, un dato específico, un ranking o un análisis descriptivo, y no una representación visual de los datos.**
-                                **Si la pregunta es sobre una 'estimación' o 'proyección', siempre marca 'is_chart_request' como false.**
+                                **Si la pregunta es sobre una 'estimación' o 'proyección', siempre marca 'is_chart_request' como false y 'chart_type' como 'none'.**
+                                **Si la pregunta pide 'listar', 'mostrar una tabla', 'detallar' o 'qué clientes', prioriza 'chart_type: table'.**
 
-                                **Columnas de datos disponibles y sus tipos:**
+                                **Columnas de datos disponibles y sus tipos (usa estos nombres EXACTOS):**
                                 {available_columns_str}
+
+                                **Resumen completo del DataFrame (para entender el contexto y los valores):**
+                                {df_summary_str}
 
                                 **Consideraciones para la respuesta:**
                                 - Para gráficos de evolución (línea), la columna del eje X debe ser una columna de tipo 'fecha'.
@@ -222,11 +261,13 @@ else:
                                 - "creame un grafico con la evolucion de ventas de 2025 separado por particular y seguro": {{"is_chart_request": true, "chart_type": "line", "x_axis": "Fecha", "y_axis": "Monto Facturado", "filter_column": "Fecha", "filter_value": "2025", "color_column": "TipoCliente", "start_date": "", "end_date": "", "additional_filters": [], "summary_response": "Aquí tienes la evolución de ventas de 2025, separada por particular y seguro:"}}
                                 - "ventas entre 2024-03-01 y 2024-06-30": {{"is_chart_request": true, "chart_type": "line", "x_axis": "Fecha", "y_axis": "Monto Facturado", "filter_column": "", "filter_value": "", "color_column": "", "start_date": "2024-03-01", "end_date": "2024-06-30", "additional_filters": [], "summary_response": "Aquí tienes la evolución de ventas entre marzo y junio de 2024:"}}
                                 - "ventas de particular en el primer trimestre de 2025": {{"is_chart_request": true, "chart_type": "line", "x_axis": "Fecha", "y_axis": "Monto Facturado", "filter_column": "Fecha", "filter_value": "2025", "color_column": "", "start_date": "2025-01-01", "end_date": "2025-03-31", "additional_filters": [{{"column": "TipoCliente", "value": "particular"}}], "summary_response": "Aquí tienes las ventas de clientes particulares en el primer trimestre de 2025:"}}
-                                - "analisis de mis ingresos": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "", "filter_value": "", "color_column": "", "start_date": "", "end_date": "", "additional_filters": [], "summary_response": ""}}
+                                - "analisis de mis ingresos": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "", "filter_value": "", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": ""}}
                                 - "qué cliente vendía más": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "", "filter_value": "", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": ""}}
                                 - "dame el total de ventas": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "", "filter_value": "", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": ""}}
                                 - "cuál fue el mes con menos ingresos": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "", "filter_value": "", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": ""}}
                                 - "hazme una estimacion de como sera el mes de agosto dada las ventas de 2025": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "", "filter_value": "", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "Aquí tienes una estimación de las ventas para agosto de 2025:"}}
+                                - "muéstrame una tabla de los montos facturados por cliente": {{"is_chart_request": true, "chart_type": "table", "x_axis": "TipoCliente", "y_axis": "Monto Facturado", "filter_column": "", "filter_value": "", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "Aquí tienes una tabla con los montos facturados por TipoCliente:"}}
+                                - "lista las ventas de cada tipo de cliente": {{"is_chart_request": true, "chart_type": "table", "x_axis": "TipoCliente", "y_axis": "Monto Facturado", "filter_column": "", "filter_value": "", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "Aquí tienes una tabla con las ventas por TipoCliente:"}}
 
                                 **Pregunta del usuario:** "{pregunta}"
                                 """
@@ -241,12 +282,12 @@ else:
                         "properties": {
                             "is_chart_request": {
                                 "type": "BOOLEAN",
-                                "description": "True si el usuario pide un gráfico, false en caso contrario."
+                                "description": "True si el usuario pide un gráfico o tabla, false en caso contrario."
                             },
                             "chart_type": {
                                 "type": "STRING",
-                                "enum": ["line", "bar", "pie", "scatter", "none"],
-                                "description": "Tipo de gráfico (line, bar, pie, scatter). 'none' si no es un gráfico o tipo no claro."
+                                "enum": ["line", "bar", "pie", "scatter", "table", "none"], # 'table' añadido aquí
+                                "description": "Tipo de visualización (line, bar, pie, scatter, table). 'none' si no es una visualización o tipo no claro."
                             },
                             "x_axis": {
                                 "type": "STRING",
@@ -289,7 +330,7 @@ else:
                             },
                             "summary_response": {
                                 "type": "STRING",
-                                "description": "Respuesta conversacional si se genera un gráfico. Vacío si no es gráfico."
+                                "description": "Respuesta conversacional si se genera un gráfico o tabla. Vacío si no es gráfico/tabla."
                             }
                         },
                         "required": ["is_chart_request", "chart_type", "x_axis", "y_axis", "color_column", "filter_column", "filter_value", "start_date", "end_date", "additional_filters", "summary_response"]
@@ -298,7 +339,7 @@ else:
             }
 
             try:
-                with st.spinner("Analizando su solicitud y preparando el gráfico/análisis..."):
+                with st.spinner("Analizando su solicitud y preparando la visualización/análisis..."):
                     chart_response = requests.post(api_url, headers={"Content-Type": "application/json"}, json=chart_detection_payload)
                     if chart_response.status_code == 200:
                         chart_response_json = chart_response.json()
@@ -316,16 +357,16 @@ else:
                                 st.text(f"Respuesta cruda del modelo: {chart_data_raw}")
                                 st.stop()
                         else:
-                            st.error("❌ La respuesta del modelo no contiene la estructura esperada para la detección de gráficos.")
+                            st.error("❌ La respuesta del modelo no contiene la estructura esperada para la detección de visualización.")
                             st.text(f"Respuesta completa: {chart_response.text}")
                             st.stop()
                     else:
-                        st.error(f"❌ Error al consultar Gemini API para detección de gráfico: {chart_response.status_code}")
+                        st.error(f"❌ Error al consultar Gemini API para detección de visualización: {chart_response.status_code}")
                         st.text(chart_response.text)
                         st.stop()
 
                     if chart_data.get("is_chart_request"):
-                        st.success(chart_data.get("summary_response", "Aquí tienes el gráfico solicitado:"))
+                        st.success(chart_data.get("summary_response", "Aquí tienes la visualización solicitada:"))
 
                         filtered_df = df.copy()
 
@@ -380,7 +421,7 @@ else:
 
                         # Asegurarse de que haya datos después de filtrar
                         if filtered_df.empty:
-                            st.warning("No hay datos para generar el gráfico con los filtros especificados.")
+                            st.warning("No hay datos para generar la visualización con los filtros especificados.")
                         else:
                             x_col = chart_data.get("x_axis")
                             y_col = chart_data.get("y_axis")
@@ -391,54 +432,51 @@ else:
                                 color_col = None
 
                             # Validar que las columnas existan en el DataFrame antes de usarlas
-                            if x_col not in filtered_df.columns:
-                                st.error(f"La columna '{x_col}' para el eje X no se encontró en los datos. Por favor, revisa el nombre de la columna en tu hoja de cálculo.")
-                                st.stop()
-                            if y_col not in filtered_df.columns:
-                                st.error(f"La columna '{y_col}' para el eje Y no se encontró en los datos. Por favor, revisa el nombre de la columna en tu hoja de cálculo.")
-                                st.stop()
+                            # Solo validar si x_col/y_col son necesarios para el tipo de gráfico
+                            if chart_data["chart_type"] != "table": # Tablas no necesitan x_col/y_col para mostrar
+                                if x_col not in filtered_df.columns:
+                                    st.error(f"La columna '{x_col}' para el eje X no se encontró en los datos. Por favor, revisa el nombre de la columna en tu hoja de cálculo.")
+                                    st.stop()
+                                if y_col not in filtered_df.columns:
+                                    st.error(f"La columna '{y_col}' para el eje Y no se encontró en los datos. Por favor, revisa el nombre de la columna en tu hoja de cálculo.")
+                                    st.stop()
+                            
                             # Si color_col no es None y no está en las columnas, advertir y establecer a None
                             if color_col is not None and color_col not in filtered_df.columns:
                                 st.warning(f"La columna '{color_col}' para segmentación no se encontró en los datos. El gráfico no se segmentará. Por favor, revisa el nombre de la columna en tu hoja de cálculo.")
                                 color_col = None # Ignorar la columna si no existe
 
-                            # --- Agregación y ordenamiento para gráficos de línea/barras ---
-                            group_cols = [x_col]
-                            if color_col:
-                                group_cols.append(color_col)
-
-                            if x_col == "Fecha":
-                                aggregated_df = filtered_df.copy()
-                                # Agrupar por el período que tenga sentido, por ejemplo, por mes
-                                aggregated_df['Fecha_Agrupada'] = aggregated_df['Fecha'].dt.to_period('M').dt.to_timestamp()
-                                group_cols_for_agg = ['Fecha_Agrupada']
-                                if color_col:
-                                    group_cols_for_agg.append(color_col)
-                                
-                                # FIX: Usar as_index=False en groupby
-                                aggregated_df = aggregated_df.groupby(group_cols_for_agg, as_index=False)[y_col].sum()
-                                aggregated_df = aggregated_df.sort_values(by='Fecha_Agrupada')
-                                x_col_for_plot = 'Fecha_Agrupada'
-                            else:
-                                # FIX: Usar as_index=False en groupby
-                                aggregated_df = filtered_df.groupby(group_cols, as_index=False)[y_col].sum()
-                                aggregated_df = aggregated_df.sort_values(by=x_col)
-                                x_col_for_plot = x_col
-
-
+                            # --- Lógica de Agregación y Visualización ---
                             fig = None
-                            if chart_data["chart_type"] == "line":
-                                fig = px.line(aggregated_df, x=x_col_for_plot, y=y_col, color=color_col,
-                                              title=f"Evolución de {y_col} por {x_col}",
-                                              labels={x_col_for_plot: x_col, y_col: y_col})
-                            elif chart_data["chart_type"] == "bar":
-                                fig = px.bar(aggregated_df, x=x_col_for_plot, y=y_col, color=color_col,
-                                             title=f"Distribución de {y_col} por {x_col}",
-                                             labels={x_col_for_plot: x_col, y_col: y_col})
+                            if chart_data["chart_type"] == "line" or chart_data["chart_type"] == "bar":
+                                group_cols = [x_col]
+                                if color_col:
+                                    group_cols.append(color_col)
+
+                                if x_col == "Fecha":
+                                    aggregated_df = filtered_df.copy()
+                                    aggregated_df['Fecha_Agrupada'] = aggregated_df['Fecha'].dt.to_period('M').dt.to_timestamp()
+                                    group_cols_for_agg = ['Fecha_Agrupada']
+                                    if color_col:
+                                        group_cols_for_agg.append(color_col)
+                                    
+                                    aggregated_df = aggregated_df.groupby(group_cols_for_agg, as_index=False)[y_col].sum()
+                                    aggregated_df = aggregated_df.sort_values(by='Fecha_Agrupada')
+                                    x_col_for_plot = 'Fecha_Agrupada'
+                                else:
+                                    aggregated_df = filtered_df.groupby(group_cols, as_index=False)[y_col].sum()
+                                    aggregated_df = aggregated_df.sort_values(by=x_col)
+                                    x_col_for_plot = x_col
+
+                                if chart_data["chart_type"] == "line":
+                                    fig = px.line(aggregated_df, x=x_col_for_plot, y=y_col, color=color_col,
+                                                  title=f"Evolución de {y_col} por {x_col}",
+                                                  labels={x_col_for_plot: x_col, y_col: y_col})
+                                elif chart_data["chart_type"] == "bar":
+                                    fig = px.bar(aggregated_df, x=x_col_for_plot, y=y_col, color=color_col,
+                                                 title=f"Distribución de {y_col} por {x_col}",
+                                                 labels={x_col_for_plot: x_col, y_col: y_col})
                             elif chart_data["chart_type"] == "pie":
-                                # Para gráficos de pastel, no se usa as_index=False en el groupby si names es la columna agrupada
-                                # porque names espera una columna del DF original o del DF agrupado si ya se ha reseteado el índice.
-                                # Aquí, agrupamos y luego usamos names=x_col, values=y_col
                                 grouped_pie_df = filtered_df.groupby(x_col)[y_col].sum().reset_index()
                                 fig = px.pie(grouped_pie_df, names=x_col, values=y_col,
                                              title=f"Proporción de {y_col} por {x_col}")
@@ -446,12 +484,35 @@ else:
                                 fig = px.scatter(filtered_df, x=x_col, y=y_col, color=color_col,
                                                  title=f"Relación entre {x_col} y {y_col}",
                                                  labels={x_col: x_col, y_col: y_col})
+                            elif chart_data["chart_type"] == "table":
+                                # Lógica para generar la tabla
+                                # Si se especifican x_axis y y_axis, agrupar y mostrar
+                                if x_col and y_col:
+                                    # Asegurarse de que las columnas existan antes de agrupar para la tabla
+                                    if x_col in filtered_df.columns and y_col in filtered_df.columns:
+                                        # Si hay una columna de color, incluirla en la agrupación para la tabla
+                                        table_group_cols = [x_col]
+                                        if color_col and color_col in filtered_df.columns:
+                                            table_group_cols.append(color_col)
+                                        
+                                        # Agrupar por las columnas relevantes y sumar el Monto Facturado
+                                        table_data = filtered_df.groupby(table_group_cols)[y_col].sum().reset_index()
+                                        st.subheader(f"Tabla de {y_col} por {x_col}")
+                                        st.dataframe(table_data)
+                                    else:
+                                        st.warning(f"No se pudieron encontrar las columnas '{x_col}' o '{y_col}' para generar la tabla. Mostrando todos los datos filtrados.")
+                                        st.dataframe(filtered_df) # Mostrar el DataFrame filtrado si las columnas no se encuentran
+                                else: # Si no se especifican x_axis y y_axis, mostrar el DataFrame filtrado completo
+                                    st.subheader("Tabla de Datos Filtrados")
+                                    st.dataframe(filtered_df)
+                                # No hay figura para st.plotly_chart en este caso
+                                fig = "handled_as_table" # Marcar como manejado para no intentar plotear
 
-                            if fig:
+                            if fig and fig != "handled_as_table":
                                 st.plotly_chart(fig, use_container_width=True)
-                            else:
-                                st.warning("No se pudo generar el tipo de gráfico solicitado o los datos no son adecuados.")
-                    else: # Si no es una solicitud de gráfico, procede con el análisis de texto
+                            elif fig is None: # Si no se generó ni gráfico ni tabla
+                                st.warning("No se pudo generar la visualización solicitada o los datos no son adecuados.")
+                    else: # Si no es una solicitud de gráfico/tabla, procede con el análisis de texto
                         # Solo muestra el summary_response si is_chart_request es false y hay un summary_response
                         if chart_data.get("summary_response"):
                             st.success(chart_data.get("summary_response"))
@@ -459,14 +520,13 @@ else:
                         # --- SEGUNDA LLAMADA A GEMINI: ANÁLISIS Y RECOMENDACIONES (con mejoras) ---
                         contexto_analisis = f"""Eres un asistente de IA especializado en análisis financiero. Tu misión es ayudar al usuario a interpretar sus datos, identificar tendencias, predecir posibles escenarios (con cautela) y ofrecer recomendaciones estratégicas.
 
-                        Aquí están las **primeras 20 filas** de los datos financieros disponibles para tu análisis:
+                        **Resumen completo del DataFrame (para tu análisis):**
+                        {df_summary_str}
 
-                        {df.head(20).to_string(index=False)}
-
-                        **Columnas de datos disponibles y sus tipos:**
+                        **Columnas de datos disponibles y sus tipos (usa estos nombres EXACTOS):**
                         {available_columns_str}
 
-                        Basándote **exclusivamente** en la información proporcionada y en tu rol de analista financiero, por favor, responde a la siguiente pregunta del usuario.
+                        Basándote **exclusivamente** en la información proporcionada en el resumen del DataFrame y en tu rol de analista financiero, por favor, responde a la siguiente pregunta del usuario.
 
                         Al formular tu respuesta, considera lo siguiente:
                         1.  **Análisis Profundo:** Busca patrones, anomalías, crecimientos o decrecimientos significativos. Identifica y destaca cualquier punto clave (máximos, mínimos, cambios abruptos) relevantes para la pregunta. Si es posible, menciona métricas clave o porcentajes de cambio.
@@ -523,3 +583,4 @@ else:
     except Exception as e:
         st.error("❌ No se pudo cargar la hoja de cálculo.")
         st.exception(e)
+
