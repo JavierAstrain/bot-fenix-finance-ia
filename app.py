@@ -43,8 +43,6 @@ def show_login_form():
 if not st.session_state.logged_in:
     show_login_form()
 else:
-    # --- El resto de tu código de la aplicación Streamlit va aquí ---
-
     # --- AGREGAR LOGO DE LA EMPRESA Y TÍTULO ---
     col_title, col_logo = st.columns([0.7, 0.3]) # 70% para título, 30% para logo
 
@@ -53,16 +51,12 @@ else:
 
     with col_logo:
         try:
-            # Streamlit by default centers images in columns.
-            # For right alignment, you might need custom CSS if this isn't sufficient.
-            # For now, let's keep it simple.
             st.image("logo_high_resolution.jpg", width=150) # Ajusta el ancho según sea necesario
         except FileNotFoundError:
             st.warning("No se encontró el archivo 'logo_high_resolution.jpg'. Asegúrate de que esté en la misma carpeta.")
 
     st.write("Haz preguntas en lenguaje natural sobre tu información financiera.")
-    st.subheader("📊 Vista previa de los datos:")
-    st.dataframe(df.head(10))
+    
 
     # --- CREDENCIALES GOOGLE DESDE SECRETS ---
     try:
@@ -109,6 +103,10 @@ else:
 
         # Eliminar filas con valores NaN en columnas críticas para el análisis o gráficos
         df.dropna(subset=["Fecha", "Monto Facturado"], inplace=True)
+
+        # --- Mostrar vista previa de los datos después de la carga y limpieza ---
+        st.subheader("📊 Vista previa de los datos:")
+        st.dataframe(df.head(10))
 
         # --- Generar información dinámica de columnas para el prompt de Gemini ---
         available_columns_info = []
@@ -883,3 +881,4 @@ else:
     except Exception as e:
         st.error("❌ No se pudo cargar la hoja de cálculo. Asegúrate de que la URL es correcta y las credenciales de Google Sheets están configuradas. También verifica que los nombres de las columnas en tu hoja coincidan con los esperados: 'Fecha', 'Monto Facturado', 'TipoCliente', 'Costo de Ventas', 'Gastos Operativos', 'Ingresos por Servicios', 'Canal de Venta', 'Estado de Pago'.")
         st.exception(e)
+
