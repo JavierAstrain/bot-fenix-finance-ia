@@ -33,7 +33,8 @@ def show_login_form():
                 st.error("Usuario o contraseña incorrectos.")
 
 # Mostrar el formulario de login si el usuario no ha iniciado sesión
-if not st.session_state.loggedin:
+# FIX: Cambiado 'loggedin' a 'logged_in' para coincidir con la inicialización
+if not st.session_state.logged_in:
     show_login_form()
 else:
     # --- El resto de tu código de la aplicación Streamlit va aquí ---
@@ -583,4 +584,3 @@ else:
     except Exception as e:
         st.error("❌ No se pudo cargar la hoja de cálculo.")
         st.exception(e)
-
