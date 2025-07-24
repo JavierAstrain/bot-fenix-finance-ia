@@ -329,6 +329,10 @@ else:
                             y_col = chart_data.get("y_axis")
                             color_col = chart_data.get("color_column")
 
+                            # --- FIX: Asegurarse de que color_col sea None si es una cadena vacía ---
+                            if color_col == "":
+                                color_col = None
+
                             # Validar que las columnas existan en el DataFrame antes de usarlas
                             if x_col not in filtered_df.columns:
                                 st.error(f"La columna '{x_col}' para el eje X no se encontró en los datos. Por favor, revisa el nombre de la columna en tu hoja de cálculo.")
@@ -336,7 +340,8 @@ else:
                             if y_col not in filtered_df.columns:
                                 st.error(f"La columna '{y_col}' para el eje Y no se encontró en los datos. Por favor, revisa el nombre de la columna en tu hoja de cálculo.")
                                 st.stop()
-                            if color_col and color_col not in filtered_df.columns:
+                            # Si color_col no es None y no está en las columnas, advertir y establecer a None
+                            if color_col is not None and color_col not in filtered_df.columns:
                                 st.warning(f"La columna '{color_col}' para segmentación no se encontró en los datos. El gráfico no se segmentará. Por favor, revisa el nombre de la columna en tu hoja de cálculo.")
                                 color_col = None # Ignorar la columna si no existe
 
@@ -448,3 +453,4 @@ else:
     except Exception as e:
         st.error("❌ No se pudo cargar la hoja de cálculo.")
         st.exception(e)
+
