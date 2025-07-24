@@ -344,15 +344,15 @@ else:
                                 -   "qué cliente vendía más": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "", "filter_value": "", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "Basado en tus datos, el cliente que generó la mayor cantidad de ventas es [NOMBRE_CLIENTE_MAX_VENTAS] con un total de $[MONTO_MAX_VENTAS:.2f].", "aggregation_period": "none", "table_columns": [], "calculation_type": "max_client_sales", "calculation_params": {{}}}}
                                 -   "dame el total de ventas": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "", "filter_value": "", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "El monto total facturado en todos los datos es de $[TOTAL_MONTO_FACTURADO:.2f].", "aggregation_period": "none", "table_columns": [], "calculation_type": "total_sales", "calculation_params": {{}}}}
                                 -   "cuál fue el mes con menos ingresos": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "", "filter_value": "", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "El mes con menos ingresos fue [MES_MIN_INGRESOS] con un total de $[MONTO_MIN_INGRESOS:.2f].", "aggregation_period": "none", "table_columns": [], "calculation_type": "min_month_sales", "calculation_params": {{}}}}
-                                -   "hazme una estimacion de cual seria la venta para lo que queda de 2025": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "Fecha", "filter_value": "2025", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "Aquí tienes una estimación de las ventas para lo que queda de 2025: $[ESTIMACION_RESTO_2025:.2f]. Ten en cuenta que esta es una proyección basada en datos históricos y no una garantía financiera.", "aggregation_period": "none", "table_columns": [], "calculation_type": "project_remaining_year", "calculation_params": {{"target_year": 2025}}}}
+                                -   "hazme una estimacion de cual seria la venta para lo que queda de 2025": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "Fecha", "filter_value": "2025", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "Aquí tienes una estimación de las ventas para lo que queda de [TARGET_YEAR]: $[ESTIMACION_RESTO_YEAR:.2f]. Ten en cuenta que esta es una proyección basada en datos históricos y no una garantía financiera.", "aggregation_period": "none", "table_columns": [], "calculation_type": "project_remaining_year", "calculation_params": {{"target_year": 2025}}}}
                                 -   "muéstrame una tabla de los montos facturados por cliente": {{"is_chart_request": true, "chart_type": "table", "x_axis": "Cliente", "y_axis": "Monto Facturado", "filter_column": "", "filter_value": "", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "Aquí tienes una tabla con los montos facturados por Cliente:", "aggregation_period": "none", "table_columns": ["Cliente", "Monto Facturado"], "calculation_type": "none", "calculation_params": {{}}}}
                                 -   "lista las ventas de cada tipo de cliente": {{"is_chart_request": true, "chart_type": "table", "x_axis": "Tipo Cliente", "y_axis": "Monto Facturado", "filter_column": "", "filter_value": "", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "Aquí tienes una tabla con las ventas por Tipo Cliente:", "aggregation_period": "none", "table_columns": ["Tipo Cliente", "Monto Facturado"], "calculation_type": "none", "calculation_params": {{}}}}
                                 -   "ventas mensuales de 2023": {{"is_chart_request": true, "chart_type": "line", "x_axis": "Fecha", "y_axis": "Monto Facturado", "filter_column": "Fecha", "filter_value": "2023", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "Aquí tienes las ventas mensuales de 2023:", "aggregation_period": "month", "table_columns": [], "calculation_type": "none", "calculation_params": {{}}}}
                                 -   "ventas por año": {{"is_chart_request": true, "chart_type": "bar", "x_axis": "Fecha", "y_axis": "Monto Facturado", "filter_column": "", "filter_value": "", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "Aquí tienes las ventas agrupadas por año:", "aggregation_period": "year", "table_columns": [], "calculation_type": "none", "calculation_params": {{}}}}
-                                -   "total facturado en 2024": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "Fecha", "filter_value": "2024", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "El monto total facturado en 2024 fue de $[CALCULATED_TOTAL_2024:.2f].", "aggregation_period": "year", "table_columns": [], "calculation_type": "sales_for_period", "calculation_params": {{"year": 2024}}}}
-                                -   "ventas de enero 2025": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "Fecha", "filter_value": "Enero", "color_column": "", "start_date": "2025-01-01", "end_date": "2025-01-31", "additional_filters": [], "summary_response": "Las ventas de enero de 2025 fueron de $[CALCULATED_SALES_ENERO_2025:.2f].", "aggregation_period": "month", "table_columns": [], "calculation_type": "sales_for_period", "calculation_params": {{"year": 2025, "month": 1}}}}
+                                -   "total facturado en 2024": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "Fecha", "filter_value": "2024", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "El monto total facturado en [YEAR] fue de $[CALCULATED_TOTAL_YEAR:.2f].", "aggregation_period": "year", "table_columns": [], "calculation_type": "sales_for_period", "calculation_params": {{"year": 2024}}}}
+                                -   "ventas de enero 2025": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "Fecha", "filter_value": "Enero", "color_column": "", "start_date": "2025-01-01", "end_date": "2025-01-31", "additional_filters": [], "summary_response": "Las ventas de [MONTH] de [YEAR] fueron de $[CALCULATED_SALES_MONTH_YEAR:.2f].", "aggregation_period": "month", "table_columns": [], "calculation_type": "sales_for_period", "calculation_params": {{"year": 2025, "month": 1}}}}
                                 -   "cómo puedo mejorar las ventas de lo que queda del 2025": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "", "filter_value": "", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "", "aggregation_period": "none", "table_columns": [], "calculation_type": "recommendations", "calculation_params": {{}}}}
-                                -   "me puedes hacer una estimacion de cual seria la venta para lo que queda de 2025 por mes, considerando estacionalidades": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "Fecha", "filter_value": "2025", "color_column": "", "start_date": "", "end_date": "", "additional_filters": [], "summary_response": "Aquí tienes una estimación de las ventas mensuales para lo que queda de 2025, considerando patrones históricos y estacionalidades: [ESTIMACION_MENSUAL_RESTO_2025]. Ten en cuenta que esta es una proyección basada en datos históricos y no una garantía financiera.", "aggregation_period": "month", "table_columns": [], "calculation_type": "project_remaining_year_monthly", "calculation_params": {{"target_year": 2025}}}}
+                                -   "me puedes hacer una estimacion de cual seria la venta para lo que queda de 2025 por mes, considerando estacionalidades": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "Fecha", "filter_value": "2025", "color_column": "", "start_date": "", "end_date": "", "additional_filters": [], "summary_response": "Aquí tienes una estimación de las ventas mensuales para lo que queda de [TARGET_YEAR], considerando patrones históricos y estacionalidades: [ESTIMACION_MENSUAL_RESTO_YEAR]. Ten en cuenta que esta es una proyección basada en datos históricos y no una garantía financiera.", "aggregation_period": "month", "table_columns": [], "calculation_type": "project_remaining_year_monthly", "calculation_params": {{"target_year": 2025}}}}
                                 -   "cuanta facturacion esta en estado de pago vencido": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "Estado Pago", "filter_value": "Vencido", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "El monto total facturado con estado de pago vencido es de $[TOTAL_MONTO_VENCIDO:.2f].", "aggregation_period": "none", "table_columns": [], "calculation_type": "total_overdue_payments", "calculation_params": {{}}}}
                                 -   "puedes darme insights de mejora para los proximos meses": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "", "filter_value": "", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "", "aggregation_period": "none", "table_columns": [], "calculation_type": "recommendations", "calculation_params": {{}}}}
 
@@ -710,12 +710,13 @@ else:
                                 if target_month:
                                     filtered_by_month = filtered_by_year[filtered_by_year["Fecha"].dt.month == target_month]
                                     calculated_sales = filtered_by_month["Monto Facturado"].sum()
-                                    final_summary_response = final_summary_response.replace("[CALCULATED_SALES_ENERO_2025:.2f]", f"{calculated_sales:.2f}") 
+                                    month_name = datetime(target_year, target_month, 1).strftime("%B")
+                                    final_summary_response = final_summary_response.replace("[CALCULATED_SALES_MONTH_YEAR:.2f]", f"{calculated_sales:.2f}").replace("[MONTH]", month_name.capitalize()).replace("[YEAR]", str(target_year))
                                 else:
                                     calculated_sales = filtered_by_year["Monto Facturado"].sum()
-                                    final_summary_response = final_summary_response.replace("[CALCULATED_TOTAL_2024:.2f]", f"{calculated_sales:.2f}")
+                                    final_summary_response = final_summary_response.replace("[CALCULATED_TOTAL_YEAR:.2f]", f"{calculated_sales:.2f}").replace("[YEAR]", str(target_year))
                             else:
-                                final_summary_response = final_summary_response.replace("[CALCULATED_TOTAL_2024:.2f]", "N/A").replace("[CALCULATED_SALES_ENERO_2025:.2f]", "N/A")
+                                final_summary_response = final_summary_response.replace("[CALCULATED_TOTAL_YEAR:.2f]", "N/A").replace("[CALCULATED_SALES_MONTH_YEAR:.2f]", "N/A").replace("[MONTH]", "N/A").replace("[YEAR]", "N/A")
 
                         elif calculation_type == "project_remaining_year":
                             target_year = calculation_params.get("target_year")
@@ -739,11 +740,11 @@ else:
                                     remaining_months = 12 - current_month
                                     projected_sales = avg_monthly_sales * remaining_months
                                     
-                                    final_summary_response = final_summary_response.replace("[ESTIMACION_RESTO_2025:.2f]", f"{projected_sales:.2f}")
+                                    final_summary_response = final_summary_response.replace("[ESTIMACION_RESTO_YEAR:.2f]", f"{projected_sales:.2f}").replace("[TARGET_YEAR]", str(target_year))
                                 else:
-                                    final_summary_response = final_summary_response.replace("[ESTIMACION_RESTO_2025:.2f]", "No hay suficientes datos para una estimación.")
+                                    final_summary_response = final_summary_response.replace("[ESTIMACION_RESTO_YEAR:.2f]", "No hay suficientes datos para una estimación.").replace("[TARGET_YEAR]", str(target_year))
                             else:
-                                final_summary_response = final_summary_response.replace("[ESTIMACION_RESTO_2025:.2f]", "N/A")
+                                final_summary_response = final_summary_response.replace("[ESTIMACION_RESTO_YEAR:.2f]", "N/A").replace("[TARGET_YEAR]", "N/A")
                         
                         elif calculation_type == "project_remaining_year_monthly":
                             target_year = calculation_params.get("target_year")
@@ -763,7 +764,7 @@ else:
                                         month_name = datetime(target_year, month_num, 1).strftime("%B")
                                         projected_months_list.append(f"- {month_name.capitalize()} {target_year}: ${avg_monthly_sales:.2f}")
                                     
-                                    final_summary_response = final_summary_response.replace("[ESTIMACION_MENSUAL_RESTO_2025]", "\n" + "\n".join(projected_months_list))
+                                    final_summary_response = final_summary_response.replace("[ESTIMACION_MENSUAL_RESTO_YEAR]", "\n" + "\n".join(projected_months_list)).replace("[TARGET_YEAR]", str(target_year))
 
                                 else:
                                     try:
@@ -790,13 +791,13 @@ else:
 
                                         if projected_months_list:
                                             monthly_projection_str = "\n" + "\n".join(projected_months_list)
-                                            final_summary_response = final_summary_response.replace("[ESTIMACION_MENSUAL_RESTO_2025]", monthly_projection_str)
+                                            final_summary_response = final_summary_response.replace("[ESTIMACION_MENSUAL_RESTO_YEAR]", monthly_projection_str).replace("[TARGET_YEAR]", str(target_year))
                                         else:
-                                            final_summary_response = final_summary_response.replace("[ESTIMACION_MENSUAL_RESTO_2025]", "No hay meses restantes para proyectar en este año.")
+                                            final_summary_response = final_summary_response.replace("[ESTIMACION_MENSUAL_RESTO_YEAR]", "No hay meses restantes para proyectar en este año.").replace("[TARGET_YEAR]", str(target_year))
 
                                     except Exception as e:
                                         st.error(f"Error al realizar la descomposición de series de tiempo: {e}. Asegúrate de tener suficientes datos históricos (al menos 2 años completos) para detectar estacionalidad mensual.")
-                                        final_summary_response = final_summary_response.replace("[ESTIMACION_MENSUAL_RESTO_2025]", "No se pudo generar una estimación con estacionalidad debido a un error o falta de datos.")
+                                        final_summary_response = final_summary_response.replace("[ESTIMACION_MENSUAL_RESTO_YEAR]", "No se pudo generar una estimación con estacionalidad debido a un error o falta de datos.").replace("[TARGET_YEAR]", str(target_year))
                                         # Fallback a promedio simple if model fails
                                         avg_monthly_sales = ts_data.mean() if not ts_data.empty else 0
                                         projected_months_list = []
@@ -804,9 +805,10 @@ else:
                                             month_name = datetime(target_year, month_num, 1).strftime("%B")
                                             projected_months_list.append(f"- {month_name.capitalize()} {target_year}: ${avg_monthly_sales:.2f}")
                                         final_summary_response += "\n\nSe recurrió a una proyección basada en promedio simple." + "\n" + "\n".join(projected_months_list)
+                                        final_summary_response = final_summary_response.replace("[TARGET_YEAR]", str(target_year)) # Ensure this is also replaced in the fallback message.
 
                             else:
-                                final_summary_response = final_summary_response.replace("[ESTIMACION_MENSUAL_RESTO_2025]", "N/A")
+                                final_summary_response = final_summary_response.replace("[ESTIMACION_MENSUAL_RESTO_YEAR]", "N/A").replace("[TARGET_YEAR]", "N/A")
 
                         elif calculation_type == "total_overdue_payments":
                             # Actualizado a "Estado Pago"
@@ -829,7 +831,7 @@ else:
 
                         # Si la summary_response de Gemini estaba vacía (indicando que se necesita un análisis profundo)
                         # o si no se pudo reemplazar un placeholder, hacer la segunda llamada a Gemini.
-                        if not final_summary_response or "[NOMBRE_CLIENTE_MAX_VENTAS]" in final_summary_response or "[ESTIMACION_RESTO_2025:.2f]" in final_summary_response or "[ESTIMACION_MENSUAL_RESTO_2025]" in final_summary_response or "[TOTAL_MONTO_VENCIDO:.2f]" in final_summary_response:
+                        if not final_summary_response or "[NOMBRE_CLIENTE_MAX_VENTAS]" in final_summary_response or "[ESTIMACION_RESTO_YEAR:.2f]" in final_summary_response or "[ESTIMACION_MENSUAL_RESTO_YEAR]" in final_summary_response or "[TOTAL_MONTO_VENCIDO:.2f]" in final_summary_response or "[CALCULATED_TOTAL_YEAR:.2f]" in final_summary_response or "[CALCULATED_SALES_MONTH_YEAR:.2f]" in final_summary_response:
                             contexto_analisis = f"""Eres un asesor financiero estratégico e impecable. Tu misión es proporcionar análisis de alto nivel, identificar tendencias, oportunidades y desafíos, y ofrecer recomendaciones estratégicas y accionables basadas en los datos disponibles.
 
                             **Resumen completo del DataFrame (para tu análisis):**
@@ -909,5 +911,5 @@ else:
 
 
     except Exception as e:
-        st.error("❌ No se pudo cargar la hoja de cálculo. Asegúrate de que la URL es correcta y las credenciales de Google Sheets están configuradas. También verifica que los nombres de las columnas en tu hoja coincidan con los esperados: 'Fecha', 'Monto Facturado', 'Tipo Cliente', 'Costo de Ventas', 'Gastos Operativos', 'Ingresos por Servicios', 'Canal de Venta', 'Estado Pago'.")
+        st.error("❌ No se pudo cargar la hoja de cálculo. Asegúrate de que la URL es correcta y las credenciales de Google Sheets están configuradas. También verifica que los nombres de las columnas en tu hoja coincidan con los esperados: 'Fecha', 'Monto Facturado', 'Tipo Cliente', 'Materiales y Pintura', 'Costos Financieros', 'Sucursal', 'Ejecutivo', 'Estado Pago', 'Forma de Pago', 'Descuento Aplicado (%), 'Observaciones'.")
         st.exception(e)
