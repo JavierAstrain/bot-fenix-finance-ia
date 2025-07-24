@@ -284,7 +284,7 @@ else:
 
                                 **Consideraciones para la respuesta JSON (todos los campos son obligatorios):**
                                 -   `is_chart_request`: Booleano. True si el usuario pide un gráfico o tabla, false en caso contrario.
-                                -   `chart_type`: String. Tipo de visualización (line, bar, pie, scatter, table). 'none' si no es una visualización o tipo no claro.
+                                -   `chart_type`: String. Tipo de visualización (line, bar, pie, scatter, table). 'none' if not a visualization or unclear type.
                                 -   `x_axis`: String. Nombre de la columna para el eje X (ej: 'Fecha'). Vacío si no es gráfico.
                                 -   `y_axis`: String. Nombre de la columna para el eje Y (ej: 'Monto Facturado'). Vacío si no es gráfico.
                                 -   `color_column`: String. Nombre de la columna para colorear/agrupar (ej: 'TipoCliente'). Vacío si no se pide segmentación o la columna no existe.
@@ -296,7 +296,7 @@ else:
                                 -   `summary_response`: String. Respuesta conversacional amigable que introduce la visualización o el análisis. Para respuestas textuales, debe contener la información solicitada directamente.
                                 -   `aggregation_period`: String. Período de agregación para datos de tiempo (day, month, year) o 'none' si no aplica.
                                 -   `table_columns`: Array de strings. Lista de nombres de columnas a mostrar en una tabla. Solo aplica si chart_type es 'table'.
-                                -   `calculation_type`: String. Tipo de cálculo a realizar por Python. Enum: 'none', 'total_sales', 'max_client_sales', 'min_month_sales', 'sales_for_period', 'project_remaining_year', 'project_remaining_year_monthly'.
+                                -   `calculation_type`: String. Tipo de cálculo a realizar por Python. Enum: 'none', 'total_sales', 'max_client_sales', 'min_month_sales', 'sales_for_period', 'project_remaining_year', 'project_remaining_year_monthly', 'total_overdue_payments'.
                                 -   `calculation_params`: Objeto JSON. Parámetros para el cálculo (ej: {{"year": 2025}} para 'total_sales_for_year').
 
                                 **Ejemplos de cómo mapear la intención (en formato JSON válido):**
@@ -319,6 +319,7 @@ else:
                                 -   "ventas de enero 2025": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "Fecha", "filter_value": "Enero", "color_column": "", "start_date": "2025-01-01", "end_date": "2025-01-31", "additional_filters": [], "summary_response": "Las ventas de enero de 2025 fueron de $[CALCULATED_SALES_ENERO_2025:.2f].", "aggregation_period": "month", "table_columns": [], "calculation_type": "sales_for_period", "calculation_params": {{"year": 2025, "month": 1}}}}
                                 -   "cómo puedo mejorar las ventas de lo que queda del 2025": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "", "filter_value": "", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "", "aggregation_period": "none", "table_columns": [], "calculation_type": "none", "calculation_params": {{}}}}
                                 -   "me puedes hacer una estimacion de cual seria la venta para lo que queda de 2025 por mes, considerando estacionalidades": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "Fecha", "filter_value": "2025", "color_column": "", "start_date": "", "end_date": "", "additional_filters": [], "summary_response": "Aquí tienes una estimación de las ventas mensuales para lo que queda de 2025, considerando patrones históricos y estacionalidades: [ESTIMACION_MENSUAL_RESTO_2025]. Ten en cuenta que esta es una proyección basada en datos históricos y no una garantía financiera.", "aggregation_period": "month", "table_columns": [], "calculation_type": "project_remaining_year_monthly", "calculation_params": {{"target_year": 2025}}}}
+                                -   "cuanta facturacion esta en estado de pago vencido": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "Estado de Pago", "filter_value": "Vencido", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "El monto total facturado con estado de pago vencido es de $[TOTAL_MONTO_VENCIDO:.2f].", "aggregation_period": "none", "table_columns": [], "calculation_type": "total_overdue_payments", "calculation_params": {{}}}}
 
                                 **Pregunta del usuario:** "{pregunta}"
                                 """
@@ -338,7 +339,7 @@ else:
                             "chart_type": {
                                 "type": "STRING",
                                 "enum": ["line", "bar", "pie", "scatter", "table", "none"],
-                                "description": "Tipo de visualización (line, bar, pie, scatter, table). 'none' si no es una visualización o tipo no claro."
+                                "description": "Tipo de visualización (line, bar, pie, scatter, table). 'none' if not a visualization or unclear type."
                             },
                             "x_axis": {
                                 "type": "STRING",
@@ -395,7 +396,7 @@ else:
                             },
                             "calculation_type": {
                                 "type": "STRING",
-                                "enum": ["none", "total_sales", "max_client_sales", "min_month_sales", "sales_for_period", "project_remaining_year", "project_remaining_year_monthly"],
+                                "enum": ["none", "total_sales", "max_client_sales", "min_month_sales", "sales_for_period", "project_remaining_year", "project_remaining_year_monthly", "total_overdue_payments"],
                                 "description": "Tipo de cálculo que Python debe realizar para la respuesta textual."
                             },
                             "calculation_params": {
@@ -770,10 +771,21 @@ else:
                             else:
                                 final_summary_response = final_summary_response.replace("[ESTIMACION_MENSUAL_RESTO_2025]", "N/A")
 
+                        elif calculation_type == "total_overdue_payments":
+                            if "Estado de Pago" in df.columns and "Monto Facturado" in df.columns:
+                                # Asegúrate de que la columna 'Estado de Pago' esté limpia y en el formato esperado
+                                # Convertir a string y limpiar espacios
+                                df['Estado de Pago'] = df['Estado de Pago'].astype(str).str.strip()
+                                overdue_payments_df = df[df["Estado de Pago"].str.contains("Vencido", case=False, na=False)]
+                                total_overdue_monto = overdue_payments_df["Monto Facturado"].sum()
+                                final_summary_response = final_summary_response.replace("[TOTAL_MONTO_VENCIDO:.2f]", f"{total_overdue_monto:.2f}")
+                            else:
+                                final_summary_response = final_summary_response.replace("[TOTAL_MONTO_VENCIDO:.2f]", "N/A")
+
 
                         # Si la summary_response de Gemini estaba vacía (indicando que se necesita un análisis profundo)
                         # o si no se pudo reemplazar un placeholder, hacer la segunda llamada a Gemini.
-                        if not final_summary_response or "[NOMBRE_CLIENTE_MAX_VENTAS]" in final_summary_response or "[ESTIMACION_RESTO_2025:.2f]" in final_summary_response or "[ESTIMACION_MENSUAL_RESTO_2025]" in final_summary_response:
+                        if not final_summary_response or "[NOMBRE_CLIENTE_MAX_VENTAS]" in final_summary_response or "[ESTIMACION_RESTO_2025:.2f]" in final_summary_response or "[ESTIMACION_MENSUAL_RESTO_2025]" in final_summary_response or "[TOTAL_MONTO_VENCIDO:.2f]" in final_summary_response:
                             contexto_analisis = f"""Eres un asesor financiero estratégico e impecable. Tu misión es proporcionar análisis de alto nivel, identificar tendencias, oportunidades y desafíos, y ofrecer recomendaciones estratégicas y accionables basadas en los datos disponibles.
 
                             **Resumen completo del DataFrame (para tu análisis):**
