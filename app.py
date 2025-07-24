@@ -82,12 +82,20 @@ else:
         # Esto es crucial para evitar NaTType errors en fechas y asegurar cálculos numéricos
         df.dropna(subset=["Fecha", "Monto Facturado"], inplace=True)
 
+        # --- DEBUG: Mostrar información del DataFrame después de la carga y limpieza ---
+        st.subheader("DEBUG: Información del DataFrame después de carga y limpieza")
+        st.write(df.head())
+        st.write(df.info())
+        st.write(f"Suma total de 'Monto Facturado' en df: {df['Monto Facturado'].sum():.2f}")
+        if df['Monto Facturado'].sum() == 0:
+            st.warning("DEBUG: La suma total de 'Monto Facturado' es 0. Esto puede causar proyecciones de 0.")
+
+
         # --- Generar información dinámica de columnas para el prompt de Gemini ---
         available_columns_info = []
         for col in df.columns:
             col_type = df[col].dtype
             if pd.api.types.is_datetime64_any_dtype(df[col]):
-                # CORRECCIÓN: Verificar si min/max de la columna de fecha no son NaT antes de usar strftime
                 min_date = df[col].min()
                 max_date = df[col].max()
                 if pd.isna(min_date) or pd.isna(max_date):
@@ -123,7 +131,7 @@ else:
             elif pd.api.types.is_datetime64_any_dtype(df[col]):
                 min_date = df[col].min()
                 max_date = df[col].max()
-                if not pd.isna(min_date) and not pd.isna(max_date): # CORRECCIÓN: Verificar NaT aquí también
+                if not pd.isna(min_date) and not pd.isna(max_date):
                     col_info += f" Rango de fechas: [{min_date.strftime('%Y-%m-%d')} a {max_date.strftime('%Y-%m-%d')}]"
                 else:
                     col_info += " Rango de fechas: (Contiene valores nulos o inválidos)"
@@ -196,7 +204,6 @@ else:
                 if not current_api_key:
                     st.warning("No se ha proporcionado una API Key para la prueba ni se encontró en `st.secrets`.")
                 else:
-                    # CORRECCIÓN: Definir api_url aquí dentro del bloque del botón
                     test_api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={current_api_key}"
                     test_payload = {
                         "contents": [
@@ -701,6 +708,13 @@ else:
                             target_year = calculation_params.get("target_year")
                             if target_year and "Fecha" in df.columns and "Monto Facturado" in df.columns:
                                 ts_data = df.set_index('Fecha')['Monto Facturado'].resample('MS').sum().fillna(0)
+                                
+                                # --- DEBUG: Mostrar la serie de tiempo `ts_data` ---
+                                st.subheader("DEBUG: Serie de Tiempo Mensual (ts_data)")
+                                st.write(ts_data)
+                                st.write(f"Longitud de ts_data: {len(ts_data)}")
+                                st.write(f"Suma de ts_data: {ts_data.sum():.2f}")
+                                # --- FIN DEBUG ---
 
                                 current_date = datetime.now()
                                 current_month = current_date.month
@@ -710,6 +724,9 @@ else:
                                 if len(ts_data) < 24: # Necesitamos al menos 2 años de datos para una buena estacionalidad mensual
                                     st.warning("Se necesitan al menos 2 años de datos mensuales para una proyección con estacionalidad precisa. Recurriendo a proyección basada en promedio simple.")
                                     avg_monthly_sales = ts_data.mean() if not ts_data.empty else 0
+                                    # --- DEBUG: Mostrar promedio mensual si se recurre a simple ---
+                                    st.write(f"DEBUG: Promedio mensual (fallback): {avg_monthly_sales:.2f}")
+                                    # --- FIN DEBUG ---
                                     
                                     for month_num in range(current_month + 1, 13):
                                         month_name = datetime(target_year, month_num, 1).strftime("%B")
