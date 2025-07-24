@@ -81,11 +81,14 @@ else:
         data = sheet.get_all_values()
         df = pd.DataFrame(data[1:], columns=data[0])
         
+        # --- Limpiar nombres de columnas (eliminar espacios en blanco alrededor) ---
+        df.columns = df.columns.str.strip()
+
         # --- Verificación de columnas esenciales al inicio ---
         required_columns = ["Fecha", "Monto Facturado", "TipoCliente", "Estado de Pago", "Costo de Ventas", "Gastos Operativos", "Ingresos por Servicios", "Canal de Venta"]
         missing_columns = [col for col in required_columns if col not in df.columns]
         if missing_columns:
-            st.error(f"❌ Faltan columnas esenciales en tu hoja de cálculo: {', '.join(missing_columns)}. Por favor, asegúrate de que tu hoja contenga estas columnas con los nombres exactos.")
+            st.error(f"❌ Faltan columnas esenciales en tu hoja de cálculo: {', '.join(missing_columns)}. Por favor, asegúrate de que tu hoja contenga estas columnas con los nombres **exactos** (respetando mayúsculas, minúsculas y espacios).")
             st.stop()
 
         # Convertir tipos de datos
@@ -201,7 +204,7 @@ else:
 
             * **Hacer Estimaciones y Proyecciones (con cautela y estacionalidad):**
                 * Ej: "¿Podrías proyectar el Monto Facturado para el próximo mes basándote en los datos históricos?"
-                * **Ej: "Hazme una estimación de la venta para lo que queda de 2025 por mes, considerando estacionalidades."**
+                * **Ej: "Hazme una estimación de la venta para lo que queda de 22025 por mes, considerando estacionalidades."**
                 * **Alcance:** Las proyecciones se basan en los datos históricos proporcionados y utilizan modelos de series de tiempo para intentar capturar estacionalidades. **No son consejos financieros garantizados y su precisión depende de la calidad y extensión de tus datos históricos.**
 
             * **Recibir Recomendaciones Estratégicas:**
