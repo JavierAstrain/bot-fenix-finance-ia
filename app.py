@@ -196,6 +196,7 @@ else:
                 if not current_api_key:
                     st.warning("No se ha proporcionado una API Key para la prueba ni se encontró en `st.secrets`.")
                 else:
+                    # CORRECCIÓN: Definir api_url aquí dentro del bloque del botón
                     test_api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={current_api_key}"
                     test_payload = {
                         "contents": [
@@ -207,7 +208,7 @@ else:
                     }
                     try:
                         with st.spinner("Realizando prueba de API Key..."):
-                            test_response = requests.post(api_url, headers={"Content-Type": "application/json"}, json=test_payload, timeout=10)
+                            test_response = requests.post(test_api_url, headers={"Content-Type": "application/json"}, json=test_payload, timeout=10)
                         
                         st.subheader("Resultado de la Prueba:")
                         st.write(f"Código de estado HTTP: {test_response.status_code}")
