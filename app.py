@@ -8,8 +8,8 @@ import plotly.express as px
 from datetime import datetime
 
 # --- Configuración de Login ---
-USERNAME = "adm"
-PASSWORD = "adm"
+USERNAME = "javier"
+PASSWORD = "javier"
 
 # Inicializar el estado de la sesión para el login
 if "logged_in" not in st.session_state:
