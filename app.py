@@ -127,11 +127,61 @@ else:
             * Para análisis avanzados o gráficos segmentados, es necesario que las columnas relevantes existan en tus datos.
             """)
 
+        # --- NUEVA SECCIÓN: Verificación de API Key de Gemini ---
+        with st.expander("🔑 Verificar API Key de Gemini"):
+            st.write("Usa esta sección para probar si tu API Key de Google Gemini está configurada y funcionando correctamente.")
+            test_api_key = st.text_input("Ingresa tu API Key de Gemini aquí (opcional, usa st.secrets si está vacío):", type="password")
+            test_button = st.button("Probar API Key")
+
+            if test_button:
+                current_api_key = test_api_key if test_api_key else st.secrets.get("GOOGLE_GEMINI_API_KEY", "")
+                
+                if not current_api_key:
+                    st.warning("No se ha proporcionado una API Key para la prueba ni se encontró en `st.secrets`.")
+                else:
+                    test_api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={current_api_key}"
+                    test_payload = {
+                        "contents": [
+                            {
+                                "role": "user",
+                                "parts": [{"text": "Hello"}]
+                            }
+                        ]
+                    }
+                    try:
+                        with st.spinner("Realizando prueba de API Key..."):
+                            test_response = requests.post(test_api_url, headers={"Content-Type": "application/json"}, json=test_payload, timeout=10) # Añadir timeout
+                        
+                        st.subheader("Resultado de la Prueba:")
+                        st.write(f"Código de estado HTTP: {test_response.status_code}")
+                        st.json(test_response.json()) # Mostrar el JSON completo de la respuesta
+
+                        if test_response.status_code == 200:
+                            st.success("✅ ¡La API Key parece estar funcionando correctamente!")
+                            if "candidates" in test_response.json() and len(test_response.json()["candidates"]) > 0:
+                                st.write("Respuesta del modelo (extracto):", test_response.json()["candidates"][0]["content"]["parts"][0]["text"])
+                            else:
+                                st.warning("La API Key funciona, pero la respuesta del modelo no contiene el formato esperado.")
+                        else:
+                            st.error(f"❌ La API Key no está funcionando. Código de estado: {test_response.status_code}")
+                            st.write("Posibles razones: clave incorrecta, límites de uso alcanzados, problemas de red, o la clave no tiene los permisos adecuados.")
+                            st.write("Mensaje de error de la API:", test_response.text)
+
+                    except requests.exceptions.Timeout:
+                        st.error("❌ La solicitud a la API de Gemini ha excedido el tiempo de espera (timeout). Esto puede ser un problema de red o que el servidor de Gemini esté tardando en responder.")
+                    except requests.exceptions.ConnectionError:
+                        st.error("❌ Error de conexión a la API de Gemini. Verifica tu conexión a internet o si la URL de la API es correcta.")
+                    except json.JSONDecodeError:
+                        st.error("❌ La respuesta de la API no es un JSON válido. Esto podría indicar un problema en la API de Gemini o una respuesta inesperada.")
+                    except Exception as e:
+                        st.error(f"❌ Ocurrió un error inesperado durante la prueba de la API Key: {e}")
+
         st.subheader("💬 ¿Qué deseas saber?")
         pregunta = st.text_input("Ej: ¿Cuáles fueron las ventas del año 2025? o Hazme un gráfico de la evolución de ventas del 2025.")
 
         if pregunta:
             # --- Configuración para la API de Google Gemini ---
+            # Se usa la clave de st.secrets directamente aquí para la operación principal
             try:
                 google_gemini_api_key = st.secrets["GOOGLE_GEMINI_API_KEY"]
             except KeyError:
@@ -358,11 +408,13 @@ else:
                                 if color_col:
                                     group_cols_for_agg.append(color_col)
                                 
-                                aggregated_df = aggregated_df.groupby(group_cols_for_agg)[y_col].sum().reset_index()
+                                # FIX: Usar as_index=False en groupby
+                                aggregated_df = aggregated_df.groupby(group_cols_for_agg, as_index=False)[y_col].sum()
                                 aggregated_df = aggregated_df.sort_values(by='Fecha_Agrupada')
                                 x_col_for_plot = 'Fecha_Agrupada'
                             else:
-                                aggregated_df = filtered_df.groupby(group_cols)[y_col].sum().reset_index()
+                                # FIX: Usar as_index=False en groupby
+                                aggregated_df = filtered_df.groupby(group_cols, as_index=False)[y_col].sum()
                                 aggregated_df = aggregated_df.sort_values(by=x_col)
                                 x_col_for_plot = x_col
 
@@ -377,6 +429,9 @@ else:
                                              title=f"Distribución de {y_col} por {x_col}",
                                              labels={x_col_for_plot: x_col, y_col: y_col})
                             elif chart_data["chart_type"] == "pie":
+                                # Para gráficos de pastel, no se usa as_index=False en el groupby si names es la columna agrupada
+                                # porque names espera una columna del DF original o del DF agrupado si ya se ha reseteado el índice.
+                                # Aquí, agrupamos y luego usamos names=x_col, values=y_col
                                 grouped_pie_df = filtered_df.groupby(x_col)[y_col].sum().reset_index()
                                 fig = px.pie(grouped_pie_df, names=x_col, values=y_col,
                                              title=f"Proporción de {y_col} por {x_col}")
@@ -443,6 +498,10 @@ else:
                                 st.error(f"❌ Error al consultar Gemini API: {response.status_code}")
                                 st.text(response.text)
 
+            except requests.exceptions.Timeout:
+                st.error("❌ La solicitud a la API de Gemini ha excedido el tiempo de espera (timeout). Esto puede ser un problema de red o que el servidor de Gemini esté tardando en responder.")
+            except requests.exceptions.ConnectionError:
+                st.error("❌ Error de conexión a la API de Gemini. Verifica tu conexión a internet o si la URL de la API es correcta.")
             except json.JSONDecodeError:
                 st.error("❌ Error al procesar la respuesta JSON del modelo. Intente de nuevo o reformule la pregunta.")
                 st.text(chart_response.text if 'chart_response' in locals() else "No se pudo obtener una respuesta.")
@@ -453,4 +512,3 @@ else:
     except Exception as e:
         st.error("❌ No se pudo cargar la hoja de cálculo.")
         st.exception(e)
-
