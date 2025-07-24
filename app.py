@@ -70,25 +70,40 @@ else:
         data = sheet.get_all_values()
         df = pd.DataFrame(data[1:], columns=data[0])
         
+        # --- DEBUG: Mostrar el DataFrame justo después de la carga inicial ---
+        st.subheader("DEBUG: DataFrame después de carga inicial (antes de conversiones)")
+        st.write(df.head())
+        st.write(df.info())
+
         # Convertir tipos de datos
         df["Fecha"] = pd.to_datetime(df["Fecha"], errors="coerce")
-        # Convertir todas las columnas numéricas relevantes a numérico
-        numeric_cols = ['Monto Facturado', 'Costo de Ventas', 'Gastos Operativos', 'Ingresos por Servicios']
-        for col in numeric_cols:
-            if col in df.columns: # Asegurarse de que la columna existe antes de intentar convertir
+        
+        # --- Limpieza y conversión más robusta para 'Monto Facturado' ---
+        if 'Monto Facturado' in df.columns:
+            # Convertir a string primero para aplicar métodos de string
+            df['Monto Facturado'] = df['Monto Facturado'].astype(str)
+            # Eliminar caracteres no numéricos como '$', ',', espacios
+            df['Monto Facturado'] = df['Monto Facturado'].str.replace('[$, ]', '', regex=True)
+            # Convertir a numérico, 'coerce' convierte errores a NaN
+            df['Monto Facturado'] = pd.to_numeric(df['Monto Facturado'], errors="coerce")
+        
+        # Convertir otras columnas numéricas relevantes a numérico
+        numeric_cols_other = ['Costo de Ventas', 'Gastos Operativos', 'Ingresos por Servicios']
+        for col in numeric_cols_other:
+            if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors="coerce")
 
         # Eliminar filas con valores NaN en columnas críticas para el análisis o gráficos
         # Esto es crucial para evitar NaTType errors en fechas y asegurar cálculos numéricos
         df.dropna(subset=["Fecha", "Monto Facturado"], inplace=True)
 
-        # --- DEBUG: Mostrar información del DataFrame después de la carga y limpieza ---
-        st.subheader("DEBUG: Información del DataFrame después de carga y limpieza")
+        # --- DEBUG: Mostrar información del DataFrame después de la limpieza y conversión ---
+        st.subheader("DEBUG: DataFrame después de limpieza y conversión de tipos")
         st.write(df.head())
         st.write(df.info())
-        st.write(f"Suma total de 'Monto Facturado' en df: {df['Monto Facturado'].sum():.2f}")
+        st.write(f"Suma total de 'Monto Facturado' en df (después de limpieza): {df['Monto Facturado'].sum():.2f}")
         if df['Monto Facturado'].sum() == 0:
-            st.warning("DEBUG: La suma total de 'Monto Facturado' es 0. Esto puede causar proyecciones de 0.")
+            st.warning("DEBUG: La suma total de 'Monto Facturado' es 0. Esto puede causar proyecciones de 0. Por favor, revisa tu Google Sheet para asegurarte de que la columna 'Monto Facturado' contiene números válidos y no está vacía.")
 
 
         # --- Generar información dinámica de columnas para el prompt de Gemini ---
