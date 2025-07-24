@@ -6,6 +6,7 @@ import requests
 from google.oauth2.service_account import Credentials
 import plotly.express as px
 from datetime import datetime
+import numpy as np # Para cálculos numéricos
 
 # --- Configuración de Login ---
 USERNAME = "javier"
@@ -33,7 +34,7 @@ def show_login_form():
                 st.error("Usuario o contraseña incorrectos.")
 
 # Mostrar el formulario de login si el usuario no ha iniciado sesión
-if not st.session_state.logged_in: # Corregido de 'loggedin' a 'logged_in'
+if not st.session_state.logged_in:
     show_login_form()
 else:
     # --- El resto de tu código de la aplicación Streamlit va aquí ---
@@ -74,7 +75,6 @@ else:
         df.dropna(subset=["Fecha", "Monto Facturado"], inplace=True)
 
         # --- Generar información dinámica de columnas para el prompt de Gemini ---
-        # Esta información se usará para el prompt de Gemini para que sepa qué columnas existen
         available_columns_info = []
         for col in df.columns:
             col_type = df[col].dtype
@@ -83,16 +83,14 @@ else:
             elif pd.api.types.is_numeric_dtype(df[col]):
                 available_columns_info.append(f"- '{col}' (tipo numérico)")
             else:
-                # Para columnas de texto, intentar obtener los valores únicos más comunes
                 unique_vals = df[col].dropna().unique()
-                if len(unique_vals) < 10: # Si hay pocos valores únicos, listarlos todos
+                if len(unique_vals) < 10:
                     available_columns_info.append(f"- '{col}' (tipo texto, valores: {', '.join(map(str, unique_vals))})")
-                else: # Si hay muchos, solo mencionar el tipo
+                else:
                     available_columns_info.append(f"- '{col}' (tipo texto)")
         available_columns_str = "\n".join(available_columns_info)
 
         # --- Generar un resumen más completo del DataFrame para Gemini ---
-        # Este resumen detallado le da a Gemini una visión completa de los datos sin enviar todo el DF
         df_summary_parts = []
         df_summary_parts.append("Resumen de la estructura del DataFrame:")
         df_summary_parts.append(f"Número total de filas: {len(df)}")
@@ -111,7 +109,6 @@ else:
             elif pd.api.types.is_datetime64_any_dtype(df[col]):
                 col_info += f" Rango de fechas: [{df[col].min().strftime('%Y-%m-%d')} a {df[col].max().strftime('%Y-%m-%d')}]"
             elif pd.api.types.is_object_dtype(df[col]) or pd.api.types.is_string_dtype(df[col]):
-                # Para columnas de texto, incluir los 10 valores más frecuentes y su conteo
                 top_values_counts = df[col].value_counts().nlargest(10)
                 if not top_values_counts.empty:
                     top_values_str = [f"'{val}' ({count})" for val, count in top_values_counts.items()]
@@ -150,6 +147,7 @@ else:
                 * Ej: "¿Hubo alguna anomalía en las ventas del último trimestre?"
                 * Ej: "Dame un análisis de los datos de 2024."
                 * Ej: "¿Cuál es el cliente que genera mayor cantidad de ventas?"
+                * **Ej: "¿Cómo puedo mejorar las ventas de lo que queda del 2025?"** (¡Nuevo!)
 
             * **Hacer Estimaciones y Proyecciones (con cautela):**
                 * Ej: "¿Podrías proyectar el Monto Facturado para el próximo mes basándote en los datos históricos?"
@@ -188,11 +186,11 @@ else:
                     }
                     try:
                         with st.spinner("Realizando prueba de API Key..."):
-                            test_response = requests.post(test_api_url, headers={"Content-Type": "application/json"}, json=test_payload, timeout=10) # Añadir timeout
+                            test_response = requests.post(test_api_url, headers={"Content-Type": "application/json"}, json=test_payload, timeout=10)
                         
                         st.subheader("Resultado de la Prueba:")
                         st.write(f"Código de estado HTTP: {test_response.status_code}")
-                        st.json(test_response.json()) # Mostrar el JSON completo de la respuesta
+                        st.json(test_response.json())
 
                         if test_response.status_code == 200:
                             st.success("✅ ¡La API Key parece estar funcionando correctamente!")
@@ -260,26 +258,28 @@ else:
                                 -   `aggregation_period`: **Muy importante.** Debe ser 'day', 'month', 'year' o 'none' según la granularidad solicitada por el usuario o la más lógica para la visualización/análisis. Por ejemplo, "ventas mensuales" -> 'month'. "ventas totales de 2024" -> 'year'. "ventas por cliente" -> 'none' (ya que no es una agregación temporal).
                                 -   `table_columns`: Una lista de strings con los nombres exactos de las columnas que deben mostrarse en una tabla. Solo aplica si `chart_type` es `table`. Si es una tabla de resumen (ej. ventas por cliente), incluye las columnas de agrupación y la columna de valor.
                                 -   `summary_response`: Una respuesta conversacional amigable que introduce la visualización o el análisis. Para respuestas textuales, debe contener la información solicitada directamente.
+                                -   `calculation_type`: String. Tipo de cálculo a realizar por Python. Enum: 'none', 'total_sales', 'max_client_sales', 'min_month_sales', 'sales_for_period', 'project_remaining_year'.
+                                -   `calculation_params`: Objeto JSON. Parámetros para el cálculo (ej: {{"year": 2025}} para 'total_sales_for_year').
 
                                 **Ejemplos de cómo mapear la intención (en formato JSON válido):**
-                                -   "evolución de ventas del año 2025": {{"is_chart_request": true, "chart_type": "line", "x_axis": "Fecha", "y_axis": "Monto Facturado", "filter_column": "Fecha", "filter_value": "2025", "color_column": "", "start_date": "", "end_date": "", "additional_filters": [], "summary_response": "Aquí tienes la evolución de ventas para el año 2025:", "aggregation_period": "month", "table_columns": []}}
-                                -   "ventas por mes": {{"is_chart_request": true, "chart_type": "bar", "x_axis": "Fecha", "y_axis": "Monto Facturado", "filter_column": "", "filter_value": "", "color_column": "", "start_date": "", "end_date": "", "additional_filters": [], "summary_response": "Aquí tienes un gráfico de barras de las ventas por mes:", "aggregation_period": "month", "table_columns": []}}
-                                -   "gráfico de barras de montos facturados por TipoCliente": {{"is_chart_request": true, "chart_type": "bar", "x_axis": "TipoCliente", "y_axis": "Monto Facturado", "filter_column": "", "filter_value": "", "color_column": "TipoCliente", "start_date": "", "end_date": "", "additional_filters": [], "summary_response": "Aquí tienes un gráfico de barras de los montos facturados por TipoCliente:", "aggregation_period": "none", "table_columns": []}}
-                                -   "creame un grafico con la evolucion de ventas de 2025 separado por particular y seguro": {{"is_chart_request": true, "chart_type": "line", "x_axis": "Fecha", "y_axis": "Monto Facturado", "filter_column": "Fecha", "filter_value": "2025", "color_column": "TipoCliente", "start_date": "", "end_date": "", "additional_filters": [], "summary_response": "Aquí tienes la evolución de ventas de 2025, separada por particular y seguro:", "aggregation_period": "month", "table_columns": []}}
-                                -   "ventas entre 2024-03-01 y 2024-06-30": {{"is_chart_request": true, "chart_type": "line", "x_axis": "Fecha", "y_axis": "Monto Facturado", "filter_column": "", "filter_value": "", "color_column": "", "start_date": "2024-03-01", "end_date": "2024-06-30", "additional_filters": [], "summary_response": "Aquí tienes la evolución de ventas entre marzo y junio de 2024:", "aggregation_period": "month", "table_columns": []}}
-                                -   "ventas de particular en el primer trimestre de 2025": {{"is_chart_request": true, "chart_type": "line", "x_axis": "Fecha", "y_axis": "Monto Facturado", "filter_column": "Fecha", "filter_value": "2025", "color_column": "", "start_date": "2025-01-01", "end_date": "2025-03-31", "additional_filters": [{{"column": "TipoCliente", "value": "particular"}}], "summary_response": "Aquí tienes las ventas de clientes particulares en el primer trimestre de 2025:", "aggregation_period": "month", "table_columns": []}}
-                                -   "analisis de mis ingresos": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "", "filter_value": "", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "Analizando tus ingresos, se observa una tendencia general. Para un análisis más detallado, considera preguntar por períodos específicos o segmentaciones.", "aggregation_period": "none", "table_columns": []}}
-                                -   "qué cliente vendía más": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "", "filter_value": "", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "Basado en tus datos, el cliente que generó la mayor cantidad de ventas es [NOMBRE_CLIENTE_MAX_VENTAS] con un total de $[MONTO_MAX_VENTAS:.2f].", "aggregation_period": "none", "table_columns": []}}
-                                -   "dame el total de ventas": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "", "filter_value": "", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "El monto total facturado en todos los datos es de $[TOTAL_MONTO_FACTURADO:.2f].", "aggregation_period": "none", "table_columns": []}}
-                                -   "cuál fue el mes con menos ingresos": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "", "filter_value": "", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "El mes con menos ingresos fue [MES_MIN_INGRESOS] con un total de $[MONTO_MIN_INGRESOS:.2f].", "aggregation_period": "none", "table_columns": []}}
-                                -   "hazme una estimacion de como sera el mes de agosto dada las ventas de 2025": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "", "filter_value": "", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "Aquí tienes una estimación de las ventas para agosto de 2025: [Tu estimación basada en el análisis de tendencias].", "aggregation_period": "none", "table_columns": []}}
-                                -   "muéstrame una tabla de los montos facturados por cliente": {{"is_chart_request": true, "chart_type": "table", "x_axis": "TipoCliente", "y_axis": "Monto Facturado", "filter_column": "", "filter_value": "", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "Aquí tienes una tabla con los montos facturados por TipoCliente:", "aggregation_period": "none", "table_columns": ["TipoCliente", "Monto Facturado"]}}
-                                -   "lista las ventas de cada tipo de cliente": {{"is_chart_request": true, "chart_type": "table", "x_axis": "TipoCliente", "y_axis": "Monto Facturado", "filter_column": "", "filter_value": "", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "Aquí tienes una tabla con las ventas por TipoCliente:", "aggregation_period": "none", "table_columns": ["TipoCliente", "Monto Facturado"]}}
-                                -   "ventas mensuales de 2023": {{"is_chart_request": true, "chart_type": "line", "x_axis": "Fecha", "y_axis": "Monto Facturado", "filter_column": "Fecha", "filter_value": "2023", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "Aquí tienes las ventas mensuales de 2023:", "aggregation_period": "month", "table_columns": []}}
-                                -   "ventas por año": {{"is_chart_request": true, "chart_type": "bar", "x_axis": "Fecha", "y_axis": "Monto Facturado", "filter_column": "", "filter_value": "", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "Aquí tienes las ventas agrupadas por año:", "aggregation_period": "year", "table_columns": []}}
-                                -   "total facturado en 2024": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "Fecha", "filter_value": "2024", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "El monto total facturado en 2024 fue de $[MONTO_TOTAL_2024:.2f].", "aggregation_period": "year", "table_columns": []}}
-                                -   "ventas de enero 2025": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "Fecha", "filter_value": "Enero", "color_column": "", "start_date": "2025-01-01", "end_date": "2025-01-31", "additional_filters": [], "summary_response": "Las ventas de enero de 2025 fueron de $[VENTAS_ENERO_2025:.2f].", "aggregation_period": "month", "table_columns": []}}
-
+                                -   "evolución de ventas del año 2025": {{"is_chart_request": true, "chart_type": "line", "x_axis": "Fecha", "y_axis": "Monto Facturado", "filter_column": "Fecha", "filter_value": "2025", "color_column": "", "start_date": "", "end_date": "", "additional_filters": [], "summary_response": "Aquí tienes la evolución de ventas para el año 2025:", "aggregation_period": "month", "table_columns": [], "calculation_type": "none", "calculation_params": {{}}}}
+                                -   "ventas por mes": {{"is_chart_request": true, "chart_type": "bar", "x_axis": "Fecha", "y_axis": "Monto Facturado", "filter_column": "", "filter_value": "", "color_column": "", "start_date": "", "end_date": "", "additional_filters": [], "summary_response": "Aquí tienes un gráfico de barras de las ventas por mes:", "aggregation_period": "month", "table_columns": [], "calculation_type": "none", "calculation_params": {{}}}}
+                                -   "gráfico de barras de montos facturados por TipoCliente": {{"is_chart_request": true, "chart_type": "bar", "x_axis": "TipoCliente", "y_axis": "Monto Facturado", "filter_column": "", "filter_value": "", "color_column": "TipoCliente", "start_date": "", "end_date": "", "additional_filters": [], "summary_response": "Aquí tienes un gráfico de barras de los montos facturados por TipoCliente:", "aggregation_period": "none", "table_columns": [], "calculation_type": "none", "calculation_params": {{}}}}
+                                -   "creame un grafico con la evolucion de ventas de 2025 separado por particular y seguro": {{"is_chart_request": true, "chart_type": "line", "x_axis": "Fecha", "y_axis": "Monto Facturado", "filter_column": "Fecha", "filter_value": "2025", "color_column": "TipoCliente", "start_date": "", "end_date": "", "additional_filters": [], "summary_response": "Aquí tienes la evolución de ventas de 2025, separada por particular y seguro:", "aggregation_period": "month", "table_columns": [], "calculation_type": "none", "calculation_params": {{}}}}
+                                -   "ventas entre 2024-03-01 y 2024-06-30": {{"is_chart_request": true, "chart_type": "line", "x_axis": "Fecha", "y_axis": "Monto Facturado", "filter_column": "", "filter_value": "", "color_column": "", "start_date": "2024-03-01", "end_date": "2024-06-30", "additional_filters": [], "summary_response": "Aquí tienes la evolución de ventas entre marzo y junio de 2024:", "aggregation_period": "month", "table_columns": [], "calculation_type": "none", "calculation_params": {{}}}}
+                                -   "ventas de particular en el primer trimestre de 2025": {{"is_chart_request": true, "chart_type": "line", "x_axis": "Fecha", "y_axis": "Monto Facturado", "filter_column": "Fecha", "filter_value": "2025", "color_column": "", "start_date": "2025-01-01", "end_date": "2025-03-31", "additional_filters": [{{"column": "TipoCliente", "value": "particular"}}], "summary_response": "Aquí tienes las ventas de clientes particulares en el primer trimestre de 2025:", "aggregation_period": "month", "table_columns": [], "calculation_type": "none", "calculation_params": {{}}}}
+                                -   "analisis de mis ingresos": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "", "filter_value": "", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "", "aggregation_period": "none", "table_columns": [], "calculation_type": "none", "calculation_params": {{}}}}
+                                -   "qué cliente vendía más": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "", "filter_value": "", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "Basado en tus datos, el cliente que generó la mayor cantidad de ventas es [NOMBRE_CLIENTE_MAX_VENTAS] con un total de $[MONTO_MAX_VENTAS:.2f].", "aggregation_period": "none", "table_columns": [], "calculation_type": "max_client_sales", "calculation_params": {{}}}}
+                                -   "dame el total de ventas": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "", "filter_value": "", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "El monto total facturado en todos los datos es de $[TOTAL_MONTO_FACTURADO:.2f].", "aggregation_period": "none", "table_columns": [], "calculation_type": "total_sales", "calculation_params": {{}}}}
+                                -   "cuál fue el mes con menos ingresos": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "", "filter_value": "", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "El mes con menos ingresos fue [MES_MIN_INGRESOS] con un total de $[MONTO_MIN_INGRESOS:.2f].", "aggregation_period": "none", "table_columns": [], "calculation_type": "min_month_sales", "calculation_params": {{}}}}
+                                -   "hazme una estimacion de como sera la venta para lo que queda de 2025": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "Fecha", "filter_value": "2025", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "Aquí tienes una estimación de las ventas para lo que queda de 2025: $[ESTIMACION_RESTO_2025:.2f]. Ten en cuenta que esta es una proyección basada en datos históricos y no una garantía financiera.", "aggregation_period": "none", "table_columns": [], "calculation_type": "project_remaining_year", "calculation_params": {{"target_year": 2025}}}}
+                                -   "muéstrame una tabla de los montos facturados por cliente": {{"is_chart_request": true, "chart_type": "table", "x_axis": "TipoCliente", "y_axis": "Monto Facturado", "filter_column": "", "filter_value": "", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "Aquí tienes una tabla con los montos facturados por TipoCliente:", "aggregation_period": "none", "table_columns": ["TipoCliente", "Monto Facturado"], "calculation_type": "none", "calculation_params": {{}}}}
+                                -   "lista las ventas de cada tipo de cliente": {{"is_chart_request": true, "chart_type": "table", "x_axis": "TipoCliente", "y_axis": "Monto Facturado", "filter_column": "", "filter_value": "", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "Aquí tienes una tabla con las ventas por TipoCliente:", "aggregation_period": "none", "table_columns": ["TipoCliente", "Monto Facturado"], "calculation_type": "none", "calculation_params": {{}}}}
+                                -   "ventas mensuales de 2023": {{"is_chart_request": true, "chart_type": "line", "x_axis": "Fecha", "y_axis": "Monto Facturado", "filter_column": "Fecha", "filter_value": "2023", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "Aquí tienes las ventas mensuales de 2023:", "aggregation_period": "month", "table_columns": [], "calculation_type": "none", "calculation_params": {{}}}}
+                                -   "ventas por año": {{"is_chart_request": true, "chart_type": "bar", "x_axis": "Fecha", "y_axis": "Monto Facturado", "filter_column": "", "filter_value": "", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "Aquí tienes las ventas agrupadas por año:", "aggregation_period": "year", "table_columns": [], "calculation_type": "none", "calculation_params": {{}}}}
+                                -   "total facturado en 2024": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "Fecha", "filter_value": "2024", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "El monto total facturado en 2024 fue de $[CALCULATED_TOTAL_2024:.2f].", "aggregation_period": "year", "table_columns": [], "calculation_type": "sales_for_period", "calculation_params": {{"year": 2024}}}}
+                                -   "ventas de enero 2025": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "Fecha", "filter_value": "Enero", "color_column": "", "start_date": "2025-01-01", "end_date": "2025-01-31", "additional_filters": [], "summary_response": "Las ventas de enero de 2025 fueron de $[CALCULATED_SALES_ENERO_2025:.2f].", "aggregation_period": "month", "table_columns": [], "calculation_type": "sales_for_period", "calculation_params": {{"year": 2025, "month": 1}}}}
+                                -   "cómo puedo mejorar las ventas de lo que queda del 2025": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "", "filter_value": "", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "", "aggregation_period": "none", "table_columns": [], "calculation_type": "none", "calculation_params": {{}}}}
 
                                 **Pregunta del usuario:** "{pregunta}"
                                 """
@@ -344,20 +344,31 @@ else:
                                 "type": "STRING",
                                 "description": "Respuesta conversacional si se genera un gráfico o tabla. Vacío si no es gráfico/tabla."
                             },
-                            "aggregation_period": { # Nuevo campo para granularidad de tiempo
+                            "aggregation_period": {
                                 "type": "STRING",
                                 "enum": ["day", "month", "year", "none"],
                                 "description": "Período de agregación para datos de tiempo (day, month, year) o 'none' si no aplica."
                             },
-                            "table_columns": { # Nuevo campo para columnas de tabla
+                            "table_columns": {
                                 "type": "ARRAY",
                                 "items": {"type": "STRING"},
                                 "description": "Lista de nombres de columnas a mostrar en una tabla. Solo aplica si chart_type es 'table'."
+                            },
+                            "calculation_type": {
+                                "type": "STRING",
+                                "enum": ["none", "total_sales", "max_client_sales", "min_month_sales", "sales_for_period", "project_remaining_year"],
+                                "description": "Tipo de cálculo que Python debe realizar para la respuesta textual."
+                            },
+                            "calculation_params": {
+                                "type": "OBJECT",
+                                "description": "Parámetros adicionales necesarios para el cálculo (ej: {'year': 2025, 'month': 1}).",
+                                "additionalProperties": True
                             }
                         },
                         "required": ["is_chart_request", "chart_type", "x_axis", "y_axis", "color_column", 
                                      "filter_column", "filter_value", "start_date", "end_date", 
-                                     "additional_filters", "summary_response", "aggregation_period", "table_columns"]
+                                     "additional_filters", "summary_response", "aggregation_period", 
+                                     "table_columns", "calculation_type", "calculation_params"]
                     }
                 }
             }
@@ -401,7 +412,6 @@ else:
                                     year_to_filter = int(chart_data["filter_value"])
                                     filtered_df = filtered_df[filtered_df["Fecha"].dt.year == year_to_filter]
                                 except ValueError:
-                                    # Intentar filtrar por mes si no es un año
                                     month_name = chart_data["filter_value"].lower()
                                     month_map = {
                                         'enero': 1, 'febrero': 2, 'marzo': 3, 'abril': 4,
@@ -412,7 +422,7 @@ else:
                                         filtered_df = filtered_df[filtered_df["Fecha"].dt.month == month_map[month_name]]
                                     else:
                                         st.warning(f"No se pudo aplicar el filtro de fecha '{chart_data['filter_value']}'.")
-                            else: # Filtrar por otras columnas de texto/numéricas
+                            else:
                                 if chart_data["filter_column"] in filtered_df.columns:
                                     filtered_df = filtered_df[filtered_df[chart_data["filter_column"]].astype(str).str.contains(chart_data["filter_value"], case=False, na=False)]
                                 else:
@@ -451,16 +461,14 @@ else:
                             x_col = chart_data.get("x_axis")
                             y_col = chart_data.get("y_axis")
                             color_col = chart_data.get("color_column")
-                            aggregation_period = chart_data.get("aggregation_period", "none") # Nuevo: obtener período de agregación
-                            table_columns = chart_data.get("table_columns", []) # Nuevo: obtener columnas para tabla
+                            aggregation_period = chart_data.get("aggregation_period", "none")
+                            table_columns = chart_data.get("table_columns", [])
 
                             # Asegurarse de que color_col sea None si es una cadena vacía
                             if color_col == "":
                                 color_col = None
 
                             # Validar que las columnas existan en el DataFrame antes de usarlas
-                            # La validación de x_col/y_col solo es estrictamente necesaria para gráficos
-                            # Para tablas, la lógica de display puede ser más flexible
                             if chart_data["chart_type"] != "table": 
                                 if x_col and x_col not in filtered_df.columns:
                                     st.error(f"La columna '{x_col}' para el eje X no se encontró en los datos. Por favor, revisa el nombre de la columna en tu hoja de cálculo.")
@@ -472,50 +480,45 @@ else:
                             # Si color_col no es None y no está en las columnas, advertir y establecer a None
                             if color_col is not None and color_col not in filtered_df.columns:
                                 st.warning(f"La columna '{color_col}' para segmentación no se encontró en los datos. El gráfico no se segmentará. Por favor, revisa el nombre de la columna en tu hoja de cálculo.")
-                                color_col = None # Ignorar la columna si no existe
+                                color_col = None
 
                             # --- Lógica de Agregación y Visualización ---
                             fig = None
                             if chart_data["chart_type"] in ["line", "bar"]:
                                 group_cols = []
-                                x_col_for_plot = x_col # Por defecto, el nombre original de la columna X
+                                x_col_for_plot = x_col
 
                                 if x_col == "Fecha" and aggregation_period != "none":
-                                    # Agrupar por el período que tenga sentido
                                     if aggregation_period == "month":
                                         filtered_df['Fecha_Agrupada'] = filtered_df['Fecha'].dt.to_period('M').dt.to_timestamp()
                                     elif aggregation_period == "year":
                                         filtered_df['Fecha_Agrupada'] = filtered_df['Fecha'].dt.to_period('Y').dt.to_timestamp()
                                     elif aggregation_period == "day":
-                                        filtered_df['Fecha_Agrupada'] = filtered_df['Fecha'].dt.normalize() # Agrupar por día exacto
+                                        filtered_df['Fecha_Agrupada'] = filtered_df['Fecha'].dt.normalize()
                                     
                                     group_cols.append('Fecha_Agrupada')
                                     x_col_for_plot = 'Fecha_Agrupada'
                                 else:
-                                    # Si no es fecha o no hay agregación temporal, usar x_col directamente
-                                    if x_col: # Asegurarse de que x_col no esté vacío
+                                    if x_col:
                                         group_cols.append(x_col)
                                     
                                 if color_col:
                                     group_cols.append(color_col)
 
-                                # Asegurarse de que y_col es numérico para la suma
                                 if y_col and pd.api.types.is_numeric_dtype(filtered_df[y_col]):
-                                    # Solo agrupar si hay columnas para agrupar
                                     if group_cols:
                                         aggregated_df = filtered_df.groupby(group_cols, as_index=False)[y_col].sum()
-                                    else: # Si no hay columnas para agrupar, simplemente usar el df filtrado
+                                    else:
                                         aggregated_df = filtered_df.copy()
 
-                                    # Ordenar si es una columna de fecha agrupada
                                     if x_col_for_plot == 'Fecha_Agrupada':
                                         aggregated_df = aggregated_df.sort_values(by='Fecha_Agrupada')
-                                    elif x_col and x_col in aggregated_df.columns: # Ordenar por x_col si existe en el df agregado
+                                    elif x_col and x_col in aggregated_df.columns:
                                         aggregated_df = aggregated_df.sort_values(by=x_col)
                                 else:
                                     st.warning(f"La columna '{y_col}' no es numérica y no se puede sumar para el gráfico. Mostrando datos sin agregar.")
                                     aggregated_df = filtered_df.copy()
-                                    x_col_for_plot = x_col # Usar x_col original
+                                    x_col_for_plot = x_col
 
                                 if chart_data["chart_type"] == "line":
                                     fig = px.line(aggregated_df, x=x_col_for_plot, y=y_col, color=color_col,
@@ -527,7 +530,6 @@ else:
                                                  labels={x_col_for_plot: x_col, y_col: y_col})
 
                             elif chart_data["chart_type"] == "pie":
-                                # Para gráficos de pastel, agrupar por x_col y sumar y_col
                                 if x_col and y_col and x_col in filtered_df.columns and y_col in filtered_df.columns:
                                     if pd.api.types.is_numeric_dtype(filtered_df[y_col]):
                                         grouped_pie_df = filtered_df.groupby(x_col)[y_col].sum().reset_index()
@@ -541,7 +543,6 @@ else:
                                     st.dataframe(filtered_df)
 
                             elif chart_data["chart_type"] == "scatter":
-                                # Para scatter, no se agrega, se usan los datos filtrados directamente
                                 if x_col and y_col and x_col in filtered_df.columns and y_col in filtered_df.columns:
                                     fig = px.scatter(filtered_df, x=x_col, y=y_col, color=color_col,
                                                      title=f"Relación entre {x_col} y {y_col}",
@@ -553,48 +554,44 @@ else:
                             elif chart_data["chart_type"] == "table":
                                 st.subheader(chart_data.get("summary_response", "Aquí tienes la tabla solicitada:"))
                                 
-                                # Si Gemini especificó columnas para la tabla, usarlas
                                 if table_columns:
-                                    # Validar que las columnas existan en el DataFrame filtrado
                                     valid_table_columns = [col for col in table_columns if col in filtered_df.columns]
                                     if len(valid_table_columns) == len(table_columns):
                                         st.dataframe(filtered_df[valid_table_columns])
                                     else:
                                         st.warning(f"Algunas columnas solicitadas para la tabla no se encontraron: {', '.join(set(table_columns) - set(filtered_df.columns))}. Mostrando el DataFrame filtrado completo.")
                                         st.dataframe(filtered_df)
-                                # Si no especificó, o si x_col/y_col están presentes, intentar una tabla agregada
                                 elif x_col and y_col and x_col in filtered_df.columns and y_col in filtered_df.columns:
                                     table_group_cols = [x_col]
                                     if color_col and color_col in filtered_df.columns:
                                         table_group_cols.append(color_col)
                                     
-                                    # Agregación para la tabla si es numérica
                                     if pd.api.types.is_numeric_dtype(filtered_df[y_col]):
                                         table_data = filtered_df.groupby(table_group_cols, as_index=False)[y_col].sum()
                                         st.dataframe(table_data)
                                     else:
                                         st.warning(f"La columna '{y_col}' no es numérica para agregar en la tabla. Mostrando el DataFrame filtrado completo.")
                                         st.dataframe(filtered_df)
-                                else: # Si no hay columnas específicas o x_col/y_col, mostrar el DataFrame filtrado completo
+                                else:
                                     st.dataframe(filtered_df)
                                 
-                                fig = "handled_as_table" # Marcar como manejado para no intentar plotear
+                                fig = "handled_as_table"
 
                             if fig and fig != "handled_as_table":
                                 st.plotly_chart(fig, use_container_width=True)
-                            elif fig is None and chart_data["chart_type"] != "table": # Si no se generó ni gráfico ni tabla, y no es una tabla
+                            elif fig is None and chart_data["chart_type"] != "table":
                                 st.warning("No se pudo generar la visualización solicitada o los datos no son adecuados.")
                     else: # Si no es una solicitud de gráfico/tabla, procede con el análisis de texto
-                        # --- Lógica para calcular y reemplazar placeholders en summary_response ---
                         final_summary_response = chart_data.get("summary_response", "")
+                        calculation_type = chart_data.get("calculation_type", "none")
+                        calculation_params = chart_data.get("calculation_params", {})
 
-                        # Calcular total de ventas
-                        if "[TOTAL_MONTO_FACTURADO:.2f]" in final_summary_response:
+                        # --- Realizar cálculos basados en calculation_type ---
+                        if calculation_type == "total_sales":
                             total_monto_facturado = df["Monto Facturado"].sum()
                             final_summary_response = final_summary_response.replace("[TOTAL_MONTO_FACTURADO:.2f]", f"{total_monto_facturado:.2f}")
 
-                        # Calcular cliente con más ventas
-                        if "[NOMBRE_CLIENTE_MAX_VENTAS]" in final_summary_response or "[MONTO_MAX_VENTAS:.2f]" in final_summary_response:
+                        elif calculation_type == "max_client_sales":
                             if "TipoCliente" in df.columns and "Monto Facturado" in df.columns:
                                 sales_by_client = df.groupby("TipoCliente")["Monto Facturado"].sum()
                                 if not sales_by_client.empty:
@@ -607,13 +604,12 @@ else:
                             else:
                                 final_summary_response = final_summary_response.replace("[NOMBRE_CLIENTE_MAX_VENTAS]", "N/A").replace("[MONTO_MAX_VENTAS:.2f]", "N/A")
 
-                        # Calcular mes con menos ingresos
-                        if "[MES_MIN_INGRESOS]" in final_summary_response or "[MONTO_MIN_INGRESOS:.2f]" in final_summary_response:
+                        elif calculation_type == "min_month_sales":
                             if "Fecha" in df.columns and "Monto Facturado" in df.columns:
                                 df_monthly = df.set_index("Fecha").resample("M")["Monto Facturado"].sum()
                                 if not df_monthly.empty:
                                     min_month_date = df_monthly.idxmin()
-                                    min_month_name = min_month_date.strftime("%B %Y") # Nombre del mes y año
+                                    min_month_name = min_month_date.strftime("%B %Y")
                                     min_month_amount = df_monthly.min()
                                     final_summary_response = final_summary_response.replace("[MES_MIN_INGRESOS]", min_month_name)
                                     final_summary_response = final_summary_response.replace("[MONTO_MIN_INGRESOS:.2f]", f"{min_month_amount:.2f}")
@@ -622,23 +618,56 @@ else:
                             else:
                                 final_summary_response = final_summary_response.replace("[MES_MIN_INGRESOS]", "N/A").replace("[MONTO_MIN_INGRESOS:.2f]", "N/A")
 
-                        # Calcular total facturado en un año específico (ej. 2024)
-                        if "[MONTO_TOTAL_2024:.2f]" in final_summary_response and chart_data.get("filter_column") == "Fecha" and chart_data.get("filter_value") == "2024":
-                            total_2024 = df[df["Fecha"].dt.year == 2024]["Monto Facturado"].sum()
-                            final_summary_response = final_summary_response.replace("[MONTO_TOTAL_2024:.2f]", f"{total_2024:.2f}")
+                        elif calculation_type == "sales_for_period":
+                            target_year = calculation_params.get("year")
+                            target_month = calculation_params.get("month")
+                            
+                            calculated_sales = 0
+                            if target_year and "Fecha" in df.columns and "Monto Facturado" in df.columns:
+                                filtered_by_year = df[df["Fecha"].dt.year == target_year]
+                                if target_month:
+                                    filtered_by_month = filtered_by_year[filtered_by_year["Fecha"].dt.month == target_month]
+                                    calculated_sales = filtered_by_month["Monto Facturado"].sum()
+                                    # Usar un placeholder genérico para evitar errores si el ejemplo específico no coincide
+                                    final_summary_response = final_summary_response.replace("[CALCULATED_SALES_ENERO_2025:.2f]", f"{calculated_sales:.2f}") 
+                                else:
+                                    calculated_sales = filtered_by_year["Monto Facturado"].sum()
+                                    final_summary_response = final_summary_response.replace("[CALCULATED_TOTAL_2024:.2f]", f"{calculated_sales:.2f}")
+                            else:
+                                final_summary_response = final_summary_response.replace("[CALCULATED_TOTAL_2024:.2f]", "N/A").replace("[CALCULATED_SALES_ENERO_2025:.2f]", "N/A")
 
-                        # Calcular ventas de un mes específico de un año (ej. Enero 2025)
-                        if "[VENTAS_ENERO_2025:.2f]" in final_summary_response and chart_data.get("filter_column") == "Fecha" and chart_data.get("filter_value") == "Enero" and chart_data.get("start_date") == "2025-01-01":
-                            ventas_enero_2025 = df[(df["Fecha"].dt.year == 2025) & (df["Fecha"].dt.month == 1)]["Monto Facturado"].sum()
-                            final_summary_response = final_summary_response.replace("[VENTAS_ENERO_2025:.2f]", f"{ventas_enero_2025:.2f}")
+                        elif calculation_type == "project_remaining_year":
+                            target_year = calculation_params.get("target_year")
+                            if target_year and "Fecha" in df.columns and "Monto Facturado" in df.columns:
+                                current_date = datetime.now()
+                                current_year = current_date.year
+                                current_month = current_date.month
 
+                                df_target_year = df[df["Fecha"].dt.year == target_year]
+                                df_completed_months = df_target_year[df_target_year["Fecha"].dt.month <= current_month]
 
-                        if final_summary_response:
-                            st.success("🤖 Respuesta de Gemini:")
-                            st.write(final_summary_response)
-                        else:
-                            # --- SEGUNDA LLAMADA A GEMINI: ANÁLISIS Y RECOMENDACIONES (si no hay summary_response predefinida) ---
-                            contexto_analisis = f"""Eres un asesor financiero impecable. Tu misión es ayudar al usuario a interpretar sus datos, identificar tendencias, predecir posibles escenarios (con cautela) y ofrecer recomendaciones estratégicas.
+                                if not df_completed_months.empty:
+                                    monthly_sales = df_completed_months.groupby(df_completed_months['Fecha'].dt.to_period('M'))['Monto Facturado'].sum()
+                                    
+                                    if not monthly_sales.empty:
+                                        avg_monthly_sales = monthly_sales.mean()
+                                    else:
+                                        all_monthly_sales = df.groupby(df['Fecha'].dt.to_period('M'))['Monto Facturado'].sum()
+                                        avg_monthly_sales = all_monthly_sales.mean() if not all_monthly_sales.empty else 0
+
+                                    remaining_months = 12 - current_month
+                                    projected_sales = avg_monthly_sales * remaining_months
+                                    
+                                    final_summary_response = final_summary_response.replace("[ESTIMACION_RESTO_2025:.2f]", f"{projected_sales:.2f}")
+                                else:
+                                    final_summary_response = final_summary_response.replace("[ESTIMACION_RESTO_2025:.2f]", "No hay suficientes datos para una estimación.")
+                            else:
+                                final_summary_response = final_summary_response.replace("[ESTIMACION_RESTO_2025:.2f]", "N/A")
+
+                        # Si la summary_response de Gemini estaba vacía (indicando que se necesita un análisis profundo)
+                        # o si no se pudo reemplazar un placeholder, hacer la segunda llamada a Gemini.
+                        if not final_summary_response or "[NOMBRE_CLIENTE_MAX_VENTAS]" in final_summary_response or "[ESTIMACION_RESTO_2025:.2f]" in final_summary_response:
+                            contexto_analisis = f"""Eres un asesor financiero estratégico e impecable. Tu misión es proporcionar análisis de alto nivel, identificar tendencias, oportunidades y desafíos, y ofrecer recomendaciones estratégicas y accionables basadas en los datos disponibles.
 
                             **Resumen completo del DataFrame (para tu análisis):**
                             {df_summary_str}
@@ -649,13 +678,12 @@ else:
                             Basándote **exclusivamente** en la información proporcionada en el resumen del DataFrame y en tu rol de analista financiero, por favor, responde a la siguiente pregunta del usuario.
 
                             Al formular tu respuesta, considera lo siguiente:
-                            1.  **Análisis Profundo:** Busca patrones, anomalías, crecimientos o decrecimientos significativos. Identifica y destaca cualquier punto clave (máximos, mínimos, cambios abruptos) relevantes para la pregunta. Si es posible, menciona métricas clave o porcentajes de cambio.
-                            2.  **Cálculos Explícitos:** Si la pregunta implica un cálculo (total, promedio, máximo, mínimo, etc.), realiza el cálculo mentalmente (basado en el df_summary_str o en tu conocimiento general de cómo se calcularía con esos datos) y proporciona el resultado numérico directamente en tu respuesta textual.
-                            3.  **Predicción (si aplica):** Si la pregunta sugiere una proyección, basa tu estimación en las tendencias históricas visibles en los datos. **IMPORTANTE: Siempre aclara que cualquier predicción es una estimación basada en datos pasados y no una garantía ni un consejo financiero.**
-                            4.  **Recomendaciones Accionables:** Ofrece consejos prácticos y accionables que el usuario pueda considerar para mejorar su situación financiera, siempre fundamentados en el análisis de los datos.
-                            5.  **Tono:** Mantén un tono profesional, claro, conciso y empático.
-                            6.  **Idioma:** Responde siempre en español.
-                            7.  **Orden y Claridad:** Estructura tu respuesta con encabezados o puntos clave para facilitar la lectura.
+                            1.  **Análisis de Tendencias:** Identifica patrones de crecimiento, estancamiento o declive en los Montos Facturados.
+                            2.  **Identificación de Oportunidades/Desafíos:** Basado en los datos (ej. TipoCliente con menos ventas, meses de bajo rendimiento), señala áreas de mejora o de potencial crecimiento.
+                            3.  **Recomendaciones Estratégicas y Accionables:** Ofrece consejos prácticos y concretos que el usuario pueda implementar. Estas recomendaciones deben ser generales pero relevantes al contexto financiero y a la estructura de los datos.
+                            4.  **Tono:** Mantén un tono profesional, claro, conciso, empático y proactivo.
+                            5.  **Idioma:** Responde siempre en español.
+                            6.  **Estructura:** Organiza tu respuesta con encabezados claros como "Análisis General", "Oportunidades Clave" y "Recomendaciones Estratégicas".
 
                             ---
                             Pregunta del usuario:
@@ -672,11 +700,11 @@ else:
                                     }
                                 ],
                                 "generationConfig": {
-                                    "temperature": 0.3
+                                    "temperature": 0.5 # Aumentar un poco la temperatura para respuestas más creativas/analíticas
                                 }
                             }
 
-                            with st.spinner("Consultando IA de Google Gemini..."):
+                            with st.spinner("Consultando IA de Google Gemini para análisis y recomendaciones..."):
                                 response = requests.post(api_url, headers={"Content-Type": "application/json"}, json=text_generation_payload)
                                 if response.status_code == 200:
                                     response_data = response.json()
@@ -685,11 +713,14 @@ else:
                                         st.success("🤖 Respuesta de Gemini:")
                                         st.write(content)
                                     else:
-                                        st.error("❌ No se recibió una respuesta válida de Gemini.")
+                                        st.error("❌ No se recibió una respuesta válida de Gemini para el análisis.")
                                         st.text(response.text)
                                 else:
-                                    st.error(f"❌ Error al consultar Gemini API: {response.status_code}")
+                                    st.error(f"❌ Error al consultar Gemini API para análisis: {response.status_code}")
                                     st.text(response.text)
+                        else: # Si final_summary_response ya tiene un valor calculado y no necesita más análisis
+                            st.success("🤖 Respuesta de Gemini:")
+                            st.write(final_summary_response)
 
             except requests.exceptions.Timeout:
                 st.error("❌ La solicitud a la API de Gemini ha excedido el tiempo de espera (timeout). Esto puede ser un problema de red o que el servidor de Gemini esté tardando en responder.")
@@ -703,5 +734,5 @@ else:
                 st.exception(e)
 
     except Exception as e:
-        st.error("❌ No se pudo cargar la hoja de cálculo.")
+        st.error("❌ No se pudo cargar la hoja de cálculo. Asegúrate de que la URL es correcta y las credenciales de Google Sheets están configuradas.")
         st.exception(e)
