@@ -490,7 +490,7 @@ else:
                             st.text(f"Respuesta completa: {chart_response.text}")
                             st.stop()
                     else:
-                        st.error(f"❌ Error al consultar Gemini API para detección de visualización: {chart_response.status_code}")
+                        st.error(f"❌ Error al consultar la API de la IA para detección de visualización: {chart_response.status_code}")
                         st.text(chart_response.text)
                         st.stop()
 
@@ -933,8 +933,7 @@ else:
                                     response_data = response.json()
                                     if response_data and "candidates" in response_data and len(response_data["candidates"]) > 0:
                                         content = response_data["candidates"][0]["content"]["parts"][0]["text"]
-                                        st.success("🤖 Respuesta de la IA:") # Cambiado de "Respuesta de Gemini"
-                                        st.write(content)
+                                        st.success(f"🤖 Respuesta de la IA:\n\n{content}") # Combinado el st.success con el contenido
                                     else:
                                         st.error("❌ No se recibió una respuesta válida de la IA para el análisis.")
                                         st.text(response.text)
@@ -942,8 +941,7 @@ else:
                                     st.error(f"❌ Error al consultar la API de la IA para análisis: {response.status_code}")
                                     st.text(response.text)
                         else:
-                            st.success("🤖 Respuesta de la IA:") # Cambiado de "Respuesta de Gemini"
-                            st.write(final_summary_response)
+                            st.success(f"🤖 Respuesta de la IA:\n\n{final_summary_response}") # Combinado el st.success con el contenido
 
             except requests.exceptions.Timeout:
                 st.error("❌ La solicitud a la API de la IA ha excedido el tiempo de espera (timeout). Esto puede ser un problema de red o que el servidor de la IA esté tardando en responder.")
@@ -971,3 +969,4 @@ else:
     except Exception as e:
         st.error("❌ No se pudo cargar la hoja de cálculo. Asegúrate de que la URL es correcta y las credenciales de Google Sheets están configuradas. También verifica que los nombres de las columnas en tu hoja coincidan con los esperados: 'Fecha', 'Monto Facturado', 'Tipo Cliente', 'Materiales y Pintura', 'Costos Financieros', 'Sucursal', 'Ejecutivo', 'Estado Pago', 'Forma de Pago', 'Descuento Aplicado (%), 'Observaciones'.")
         st.exception(e)
+
