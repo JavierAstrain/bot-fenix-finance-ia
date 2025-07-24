@@ -30,15 +30,19 @@ def show_login_form():
         if submit_button:
             if username == USERNAME and password == PASSWORD:
                 st.session_state.logged_in = True
-                st.rerun()  # Vuelve a ejecutar el script para mostrar la app principal
+                st.rerun()
             else:
                 st.error("Usuario o contraseña incorrectos.")
 
-@st.cache_data(ttl=600) # Cachea los datos por 10 minutos para mejorar rendimiento
+@st.cache_data(ttl=600)
 def load_data(url):
     """Carga y procesa los datos desde Google Sheets."""
     try:
-        creds_dict = st.secrets["GOOGLE_CREDENTIALS"]
+        # --- FIX: Convertir el string de secrets a un diccionario ---
+        creds_str = st.secrets["GOOGLE_CREDENTIALS"]
+        creds_dict = json.loads(creds_str)
+        # --- FIN DEL FIX ---
+        
         creds = Credentials.from_service_account_info(creds_dict, scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"])
         client = gspread.authorize(creds)
         sheet = client.open_by_url(url).sheet1
@@ -50,7 +54,6 @@ def load_data(url):
 
         df = pd.DataFrame(data[1:], columns=data[0])
         
-        # Procesamiento y limpieza de datos
         if "Fecha" in df.columns:
             df["Fecha"] = pd.to_datetime(df["Fecha"], errors="coerce")
         if "Monto Facturado" in df.columns:
@@ -58,6 +61,9 @@ def load_data(url):
         
         df.dropna(subset=["Fecha", "Monto Facturado"], inplace=True)
         return df
+    except json.JSONDecodeError:
+        st.error("❌ Error de formato en GOOGLE_CREDENTIALS. Asegúrate de que el contenido en st.secrets sea un JSON válido.")
+        return pd.DataFrame()
     except Exception as e:
         st.error(f"❌ Error al cargar o procesar los datos: {e}")
         return pd.DataFrame()
@@ -69,7 +75,6 @@ def create_visualization(df, params):
     y_col = params.get("y_axis")
     color_col = params.get("color_column") if params.get("color_column") else None
 
-    # Validar que las columnas necesarias existan
     required_cols = [c for c in [x_col, y_col, color_col] if c]
     missing_cols = [col for col in required_cols if col not in df.columns]
     if missing_cols:
@@ -78,7 +83,6 @@ def create_visualization(df, params):
 
     try:
         if chart_type == "table":
-            # Para tablas, es útil agrupar y sumar
             grouping_cols = [col for col in [x_col, color_col] if col]
             if not grouping_cols:
                 st.dataframe(df)
@@ -87,26 +91,18 @@ def create_visualization(df, params):
             agg_df = df.groupby(grouping_cols)[y_col].sum().reset_index()
             st.dataframe(agg_df)
 
-        elif chart_type in ["line", "bar", "scatter"]:
-            # Agrupar datos para visualizaciones, especialmente si X es una fecha
-            if pd.api.types.is_datetime64_any_dtype(df[x_col]):
-                # Agrupar por mes para tener una vista más limpia
-                plot_df = df.set_index(x_col).groupby([pd.Grouper(freq='ME'), color_col] if color_col else pd.Grouper(freq='ME'))[y_col].sum().reset_index()
-            else:
-                plot_df = df.groupby([x_col] + ([color_col] if color_col else []))[y_col].sum().reset_index()
-
+        elif chart_type in ["line", "bar", "scatter", "pie"]:
             title = f"{y_col} por {x_col}" + (f" separado por {color_col}" if color_col else "")
             
             if chart_type == "line":
-                fig = px.line(plot_df, x=x_col, y=y_col, color=color_col, title=title, markers=True)
+                fig = px.line(df, x=x_col, y=y_col, color=color_col, title=title, markers=True)
             elif chart_type == "bar":
-                fig = px.bar(plot_df, x=x_col, y=y_col, color=color_col, title=title)
+                fig = px.bar(df, x=x_col, y=y_col, color=color_col, title=title)
             elif chart_type == "scatter":
-                 fig = px.scatter(plot_df, x=x_col, y=y_col, color=color_col, title=title)
-            st.plotly_chart(fig, use_container_width=True)
+                 fig = px.scatter(df, x=x_col, y=y_col, color=color_col, title=title)
+            elif chart_type == "pie":
+                fig = px.pie(df, names=x_col, values=y_col, color=color_col, title=f"Distribución de {y_col} por {x_col}")
 
-        elif chart_type == "pie":
-            fig = px.pie(df, names=x_col, values=y_col, color=color_col, title=f"Distribución de {y_col} por {x_col}")
             st.plotly_chart(fig, use_container_width=True)
             
     except Exception as e:
@@ -116,14 +112,14 @@ def main_app():
     """Función principal que se ejecuta después del login."""
     try:
         st.image(LOGO_PATH, width=200)
-    except FileNotFoundError:
+    except Exception:
         st.warning(f"Logo no encontrado en la ruta: '{LOGO_PATH}'.")
 
     st.title("🤖 Bot Fénix Finance IA")
     df = load_data(SHEET_URL)
 
     if df.empty:
-        st.info("Esperando datos para analizar... Asegúrate de que la hoja de cálculo esté accesible y con datos.")
+        st.info("Esperando datos para analizar...")
         st.stop()
         
     st.write("Haz preguntas en lenguaje natural sobre tu información financiera.")
@@ -143,17 +139,14 @@ def main_app():
         - *Haz un gráfico de barras del Monto Facturado por mes, separado por TipoCliente.*
         """)
 
-    # --- Lógica de Interacción con Gemini ---
     if prompt := st.text_input("Escribe tu pregunta aquí:", key="prompt_input"):
         try:
             api_key = st.secrets["GOOGLE_GEMINI_API_KEY"]
             api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent?key={api_key}"
             
-            # Contexto simplificado para la IA
             data_sample = df.head(5).to_csv(index=False)
             column_names = ", ".join(df.columns)
             
-            # Prompt unificado y más inteligente
             system_prompt = f"""
             Eres un asistente de análisis de datos experto llamado Fénix. Tu objetivo es ayudar a un usuario a entender sus datos financieros.
             Analiza la pregunta del usuario y decide qué herramienta usar: `answer_question` para respuestas textuales o `generate_chart_or_table` para visualizaciones.
@@ -171,12 +164,6 @@ def main_app():
             2. `generate_chart_or_table`: Úsala cuando el usuario pida explícitamente un "gráfico", "tabla", "evolución", "distribución", "comparación visual", "lista detallada" o "muéstrame".
 
             **Responde SIEMPRE en formato JSON.**
-
-            **Ejemplos:**
-            - Usuario: "¿Cuál fue el monto total facturado?" -> Responde con `answer_question`.
-            - Usuario: "Analiza las ventas de 2024." -> Responde con `answer_question`.
-            - Usuario: "Gráfico de la evolución de ventas" -> Responde con `generate_chart_or_table`.
-            - Usuario: "Muéstrame una tabla de ventas por cliente" -> Responde con `generate_chart_or_table`.
 
             **Pregunta del Usuario:** "{prompt}"
             """
@@ -209,7 +196,7 @@ def main_app():
 
             with st.spinner("🧠 Fénix está pensando..."):
                 response = requests.post(api_url, headers={"Content-Type": "application/json"}, json=payload, timeout=60)
-                response.raise_for_status() # Lanza un error si la respuesta no es 2xx
+                response.raise_for_status()
                 
                 response_data = response.json()
                 content_text = response_data["candidates"][0]["content"]["parts"][0]["text"]
@@ -231,8 +218,7 @@ def main_app():
             st.error(f"❌ Error en la API de Gemini: {http_err}. Respuesta: {response.text}")
         except Exception as e:
             st.error(f"❌ Ocurrió un error inesperado: {e}")
-            
-# --- Flujo Principal de la Aplicación ---
+
 if not st.session_state.logged_in:
     show_login_form()
 else:
