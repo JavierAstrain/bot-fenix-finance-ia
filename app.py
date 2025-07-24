@@ -362,7 +362,11 @@ else:
                             "calculation_params": {
                                 "type": "OBJECT",
                                 "description": "Parámetros adicionales necesarios para el cálculo (ej: {'year': 2025, 'month': 1}).",
-                                "additionalProperties": True
+                                "properties": { # Se definen explícitamente las propiedades
+                                    "year": {"type": "INTEGER", "description": "Año para el cálculo."},
+                                    "month": {"type": "INTEGER", "description": "Mes para el cálculo."},
+                                    "target_year": {"type": "INTEGER", "description": "Año objetivo para proyecciones."}
+                                }
                             }
                         },
                         "required": ["is_chart_request", "chart_type", "x_axis", "y_axis", "color_column", 
@@ -628,7 +632,6 @@ else:
                                 if target_month:
                                     filtered_by_month = filtered_by_year[filtered_by_year["Fecha"].dt.month == target_month]
                                     calculated_sales = filtered_by_month["Monto Facturado"].sum()
-                                    # Usar un placeholder genérico para evitar errores si el ejemplo específico no coincide
                                     final_summary_response = final_summary_response.replace("[CALCULATED_SALES_ENERO_2025:.2f]", f"{calculated_sales:.2f}") 
                                 else:
                                     calculated_sales = filtered_by_year["Monto Facturado"].sum()
@@ -681,7 +684,7 @@ else:
                             1.  **Análisis de Tendencias:** Identifica patrones de crecimiento, estancamiento o declive en los Montos Facturados.
                             2.  **Identificación de Oportunidades/Desafíos:** Basado en los datos (ej. TipoCliente con menos ventas, meses de bajo rendimiento), señala áreas de mejora o de potencial crecimiento.
                             3.  **Recomendaciones Estratégicas y Accionables:** Ofrece consejos prácticos y concretos que el usuario pueda implementar. Estas recomendaciones deben ser generales pero relevantes al contexto financiero y a la estructura de los datos.
-                            4.  **Tono:** Mantén un tono profesional, claro, conciso, empático y proactivo.
+                            4.  **Tono:** Mantén un tono profesional, claro, conciso y empático.
                             5.  **Idioma:** Responde siempre en español.
                             6.  **Estructura:** Organiza tu respuesta con encabezados claros como "Análisis General", "Oportunidades Clave" y "Recomendaciones Estratégicas".
 
@@ -700,7 +703,7 @@ else:
                                     }
                                 ],
                                 "generationConfig": {
-                                    "temperature": 0.5 # Aumentar un poco la temperatura para respuestas más creativas/analíticas
+                                    "temperature": 0.5
                                 }
                             }
 
@@ -718,7 +721,7 @@ else:
                                 else:
                                     st.error(f"❌ Error al consultar Gemini API para análisis: {response.status_code}")
                                     st.text(response.text)
-                        else: # Si final_summary_response ya tiene un valor calculado y no necesita más análisis
+                        else:
                             st.success("🤖 Respuesta de Gemini:")
                             st.write(final_summary_response)
 
@@ -736,3 +739,4 @@ else:
     except Exception as e:
         st.error("❌ No se pudo cargar la hoja de cálculo. Asegúrate de que la URL es correcta y las credenciales de Google Sheets están configuradas.")
         st.exception(e)
+
