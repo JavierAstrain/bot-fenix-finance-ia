@@ -12,8 +12,8 @@ from dateutil.relativedelta import relativedelta # Para añadir meses fácilment
 from io import StringIO # Para capturar la salida de df.info()
 
 # --- Configuración de Login ---
-USERNAME = "adm"
-PASSWORD = "adm"
+USERNAME = "javier"
+PASSWORD = "javier"
 
 # Inicializar el estado de la sesión para el login
 if "logged_in" not in st.session_state:
