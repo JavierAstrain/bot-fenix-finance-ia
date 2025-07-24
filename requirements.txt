@@ -2,5 +2,7 @@ streamlit
 pandas
 gspread
 requests
-google-auth-oauthlib
 plotly
+numpy
+statsmodels
+python-dateutil
