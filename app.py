@@ -12,12 +12,15 @@ from dateutil.relativedelta import relativedelta # Para añadir meses fácilment
 from io import StringIO # Para capturar la salida de df.info()
 
 # --- Configuración de Login ---
-USERNAME = "javier"
-PASSWORD = "javier"
+USERNAME = "adm"
+PASSWORD = "adm"
 
 # Inicializar el estado de la sesión para el login
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
+if "question_history" not in st.session_state:
+    st.session_state.question_history = []
+
 
 # Función para el formulario de login
 def show_login_form():
@@ -42,12 +45,25 @@ if not st.session_state.logged_in:
 else:
     # --- El resto de tu código de la aplicación Streamlit va aquí ---
 
-    # --- AGREGAR LOGO DE LA EMPRESA ---
-    try:
-        st.image("logo_high_resolution.jpg", width=200)
-    except FileNotFoundError:
-        st.warning("No se encontró el archivo 'logo_high_resolution.jpg'. Asegúrate de que esté en la misma carpeta.")
-    
+    # --- AGREGAR LOGO DE LA EMPRESA Y TÍTULO ---
+    col_title, col_logo = st.columns([0.7, 0.3]) # 70% para título, 30% para logo
+
+    with col_title:
+        st.title("🤖 Bot Fénix Finance IA")
+
+    with col_logo:
+        try:
+            # Streamlit by default centers images in columns.
+            # For right alignment, you might need custom CSS if this isn't sufficient.
+            # For now, let's keep it simple.
+            st.image("logo_high_resolution.jpg", width=150) # Ajusta el ancho según sea necesario
+        except FileNotFoundError:
+            st.warning("No se encontró el archivo 'logo_high_resolution.jpg'. Asegúrate de que esté en la misma carpeta.")
+
+    st.write("Haz preguntas en lenguaje natural sobre tu información financiera.")
+    st.subheader("📊 Vista previa de los datos:")
+    st.dataframe(df.head(10))
+
     # --- CREDENCIALES GOOGLE DESDE SECRETS ---
     try:
         creds_dict = json.loads(st.secrets["GOOGLE_CREDENTIALS"])
@@ -148,12 +164,6 @@ else:
         df_summary_str = "\n".join(df_summary_parts)
 
 
-        # --- UI ---
-        st.title("🤖 Bot Fénix Finance IA")
-        st.write("Haz preguntas en lenguaje natural sobre tu información financiera.")
-        st.subheader("📊 Vista previa de los datos:")
-        st.dataframe(df.head(10))
-
         # --- Sección de "Qué puedes preguntar" ---
         with st.expander("💡 ¿Qué puedes preguntar y cuáles son los alcances de este bot?"):
             st.write("""
@@ -246,8 +256,14 @@ else:
 
         st.subheader("💬 ¿Qué deseas saber?")
         pregunta = st.text_input("Ej: ¿Cuáles fueron las ventas del año 2025? o Hazme un gráfico de la evolución de ventas del 2025.")
+        consultar_button = st.button("Consultar")
 
-        if pregunta:
+        if consultar_button and pregunta:
+            # Add current question to history
+            st.session_state.question_history.append(pregunta)
+            # Keep only the last 5 questions
+            st.session_state.question_history = st.session_state.question_history[-5:]
+
             # --- Configuración para la API de Google Gemini ---
             try:
                 google_gemini_api_key = st.secrets["GOOGLE_GEMINI_API_KEY"]
@@ -387,7 +403,7 @@ else:
                             "aggregation_period": {
                                 "type": "STRING",
                                 "enum": ["day", "month", "year", "none"],
-                                "description": "Período de agregación para datos de tiempo (day, month, year) o 'none' si no aplica."
+                                "description": "Período de agregación para datos de tiempo (day, month, year) o 'none' if not applicable."
                             },
                             "table_columns": {
                                 "type": "ARRAY",
@@ -760,7 +776,7 @@ else:
                                     except Exception as e:
                                         st.error(f"Error al realizar la descomposición de series de tiempo: {e}. Asegúrate de tener suficientes datos históricos (al menos 2 años completos) para detectar estacionalidad mensual.")
                                         final_summary_response = final_summary_response.replace("[ESTIMACION_MENSUAL_RESTO_2025]", "No se pudo generar una estimación con estacionalidad debido a un error o falta de datos.")
-                                        # Fallback a promedio simple si el modelo falla
+                                        # Fallback a promedio simple if model fails
                                         avg_monthly_sales = ts_data.mean() if not ts_data.empty else 0
                                         projected_months_list = []
                                         for month_num in range(current_month + 1, 13):
@@ -851,7 +867,19 @@ else:
             except Exception as e:
                 st.error("❌ Falló la conexión con la API de Gemini o hubo un error inesperado.")
                 st.exception(e)
+        elif consultar_button and not pregunta:
+            st.warning("Por favor, ingresa una pregunta para consultar.")
+
+        # Display history
+        if st.session_state.question_history:
+            st.subheader("Historial de Preguntas Recientes:")
+            # Show most recent first
+            for i, entry in enumerate(reversed(st.session_state.question_history)):
+                st.write(f"- {entry}")
+        else:
+            st.info("Aún no has hecho ninguna pregunta.")
+
 
     except Exception as e:
-        st.error("❌ No se pudo cargar la hoja de cálculo. Asegúrate de que la URL es correcta y las credenciales de Google Sheets están configuradas. También verifica que los nombres de las columnas en tu hoja coincidan con los esperados: 'Fecha', 'Monto Facturado', 'TipoCliente', 'Costo de Ventas', 'Gastos Operativos', 'Ingresos por Servicios', 'Canal de Venta'.")
+        st.error("❌ No se pudo cargar la hoja de cálculo. Asegúrate de que la URL es correcta y las credenciales de Google Sheets están configuradas. También verifica que los nombres de las columnas en tu hoja coincidan con los esperados: 'Fecha', 'Monto Facturado', 'TipoCliente', 'Costo de Ventas', 'Gastos Operativos', 'Ingresos por Servicios', 'Canal de Venta', 'Estado de Pago'.")
         st.exception(e)
