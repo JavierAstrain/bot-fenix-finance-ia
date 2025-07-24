@@ -335,7 +335,7 @@ else:
                                 -   `summary_response`: String. Respuesta conversacional amigable que introduce la visualización o el análisis. Para respuestas textuales, debe contener la información solicitada directamente.
                                 -   `aggregation_period`: String. Período de agregación para datos de tiempo (day, month, year) o 'none' si no aplica.
                                 -   `table_columns`: Array de strings. Lista de nombres de columnas a mostrar en una tabla. Solo aplica si chart_type es 'table'.
-                                -   `calculation_type`: String. Tipo de cálculo a realizar por Python. Enum: 'none', 'total_sales', 'max_client_sales', 'min_month_sales', 'sales_for_period', 'project_remaining_year', 'project_remaining_year_monthly', 'total_overdue_payments', 'percentage_variation', 'recommendations'.
+                                -   `calculation_type`: String. Tipo de cálculo a realizar por Python. Enum: 'none', 'total_sales', 'max_client_sales', 'min_month_sales', 'sales_for_period', 'project_remaining_year', 'project_remaining_year_monthly', 'total_overdue_payments', 'percentage_variation', 'average_by_column', 'total_for_column_by_year', 'recommendations'.
                                 -   `calculation_params`: Objeto JSON. Parámetros para el cálculo (ej: {{"year": 2025}} para 'total_sales_for_year').
 
                                 **Ejemplos de cómo mapear la intención (en formato JSON válido):**
@@ -933,27 +933,27 @@ else:
                                     response_data = response.json()
                                     if response_data and "candidates" in response_data and len(response_data["candidates"]) > 0:
                                         content = response_data["candidates"][0]["content"]["parts"][0]["text"]
-                                        st.success("🤖 Respuesta de Gemini:")
+                                        st.success("🤖 Respuesta de la IA:") # Cambiado de "Respuesta de Gemini"
                                         st.write(content)
                                     else:
-                                        st.error("❌ No se recibió una respuesta válida de Gemini para el análisis.")
+                                        st.error("❌ No se recibió una respuesta válida de la IA para el análisis.")
                                         st.text(response.text)
                                 else:
-                                    st.error(f"❌ Error al consultar Gemini API para análisis: {response.status_code}")
+                                    st.error(f"❌ Error al consultar la API de la IA para análisis: {response.status_code}")
                                     st.text(response.text)
                         else:
-                            st.success("🤖 Respuesta de Gemini:")
+                            st.success("🤖 Respuesta de la IA:") # Cambiado de "Respuesta de Gemini"
                             st.write(final_summary_response)
 
             except requests.exceptions.Timeout:
-                st.error("❌ La solicitud a la API de Gemini ha excedido el tiempo de espera (timeout). Esto puede ser un problema de red o que el servidor de Gemini esté tardando en responder.")
+                st.error("❌ La solicitud a la API de la IA ha excedido el tiempo de espera (timeout). Esto puede ser un problema de red o que el servidor de la IA esté tardando en responder.")
             except requests.exceptions.ConnectionError:
-                st.error("❌ Error de conexión a la API de Gemini. Verifica tu conexión a internet o si la URL de la API es correcta.")
+                st.error("❌ Error de conexión a la API de la IA. Verifica tu conexión a internet o si la URL de la API es correcta.")
             except json.JSONDecodeError:
                 st.error("❌ Error al procesar la respuesta JSON del modelo. Intente de nuevo o reformule la pregunta.")
                 st.text(chart_response.text if 'chart_response' in locals() else "No se pudo obtener una respuesta.")
             except Exception as e:
-                st.error("❌ Falló la conexión con la API de Gemini o hubo un error inesperado.")
+                st.error("❌ Falló la conexión con la API de la IA o hubo un error inesperado.")
                 st.exception(e)
         elif consultar_button and not pregunta:
             st.warning("Por favor, ingresa una pregunta para consultar.")
