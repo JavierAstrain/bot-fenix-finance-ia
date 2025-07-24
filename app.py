@@ -6,11 +6,13 @@ import requests
 from google.oauth2.service_account import Credentials
 import plotly.express as px
 from datetime import datetime
-import numpy as np # Para cálculos numéricos
+import numpy as np
+from statsmodels.tsa.seasonal import seasonal_decompose # Para descomposición de series de tiempo
+from dateutil.relativedelta import relativedelta # Para añadir meses fácilmente
 
 # --- Configuración de Login ---
-USERNAME = "javier"
-PASSWORD = "javier"
+USERNAME = "adm"
+PASSWORD = "adm"
 
 # Inicializar el estado de la sesión para el login
 if "logged_in" not in st.session_state:
@@ -40,9 +42,8 @@ else:
     # --- El resto de tu código de la aplicación Streamlit va aquí ---
 
     # --- AGREGAR LOGO DE LA EMPRESA ---
-    # Asegúrate de que 'logo_high_resolution.jpg' esté en la misma carpeta que app.py
     try:
-        st.image("logo_high_resolution.jpg", width=200) # Ajusta el ancho según necesites
+        st.image("logo_high_resolution.jpg", width=200)
     except FileNotFoundError:
         st.warning("No se encontró el archivo 'logo_high_resolution.jpg'. Asegúrate de que esté en la misma carpeta.")
     
@@ -149,10 +150,10 @@ else:
                 * Ej: "¿Cuál es el cliente que genera mayor cantidad de ventas?"
                 * **Ej: "¿Cómo puedo mejorar las ventas de lo que queda del 2025?"**
 
-            * **Hacer Estimaciones y Proyecciones (con cautela):**
+            * **Hacer Estimaciones y Proyecciones (con cautela y estacionalidad):**
                 * Ej: "¿Podrías proyectar el Monto Facturado para el próximo mes basándote en los datos históricos?"
-                * **Ej: "Hazme una estimación de la venta para lo que queda de 2025 por mes."** (¡Nuevo ejemplo!)
-                * **Alcance:** Las proyecciones se basan **únicamente** en los datos históricos proporcionados y son estimaciones. **No son consejos financieros garantizados.**
+                * **Ej: "Hazme una estimación de la venta para lo que queda de 2025 por mes, considerando estacionalidades."** (¡Nuevo ejemplo clave!)
+                * **Alcance:** Las proyecciones se basan en los datos históricos proporcionados y utilizan modelos de series de tiempo para intentar capturar estacionalidades. **No son consejos financieros garantizados y su precisión depende de la calidad y extensión de tus datos históricos.**
 
             * **Recibir Recomendaciones Estratégicas:**
                 * Ej: "¿Qué recomendaciones me darías para mejorar mi Monto Facturado?"
@@ -162,6 +163,7 @@ else:
             * El bot solo puede analizar la información presente en tu hoja de cálculo.
             * Asegúrate de que los nombres de las columnas que mencionas en tus preguntas (ej. 'Fecha', 'Monto Facturado', 'TipoCliente') coincidan **exactamente** con los de tu hoja.
             * Para análisis avanzados o gráficos segmentados, es necesario que las columnas relevantes existan en tus datos.
+            * **Para proyecciones con estacionalidad, se recomienda tener al menos 2-3 años de datos mensuales históricos.**
             """)
 
         # --- SECCIÓN: Verificación de API Key de Gemini ---
@@ -281,7 +283,7 @@ else:
                                 -   "total facturado en 2024": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "Fecha", "filter_value": "2024", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "El monto total facturado en 2024 fue de $[CALCULATED_TOTAL_2024:.2f].", "aggregation_period": "year", "table_columns": [], "calculation_type": "sales_for_period", "calculation_params": {{"year": 2024}}}}
                                 -   "ventas de enero 2025": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "Fecha", "filter_value": "Enero", "color_column": "", "start_date": "2025-01-01", "end_date": "2025-01-31", "additional_filters": [], "summary_response": "Las ventas de enero de 2025 fueron de $[CALCULATED_SALES_ENERO_2025:.2f].", "aggregation_period": "month", "table_columns": [], "calculation_type": "sales_for_period", "calculation_params": {{"year": 2025, "month": 1}}}}
                                 -   "cómo puedo mejorar las ventas de lo que queda del 2025": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "", "filter_value": "", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "", "aggregation_period": "none", "table_columns": [], "calculation_type": "none", "calculation_params": {{}}}}
-                                -   "me puedes hacer una estimacion de cual seria la venta para lo que queda de 2025 por mes": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "Fecha", "filter_value": "2025", "color_column": "", "start_date": "", "end_date": "", "additional_filters": [], "summary_response": "Aquí tienes una estimación de las ventas mensuales para lo que queda de 2025: [ESTIMACION_MENSUAL_RESTO_2025]. Ten en cuenta que esta es una proyección basada en datos históricos y no una garantía financiera.", "aggregation_period": "month", "table_columns": [], "calculation_type": "project_remaining_year_monthly", "calculation_params": {{"target_year": 2025}}}}
+                                -   "me puedes hacer una estimacion de cual seria la venta para lo que queda de 2025 por mes, considerando estacionalidades": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "Fecha", "filter_value": "2025", "color_column": "", "start_date": "", "end_date": "", "additional_filters": [], "summary_response": "Aquí tienes una estimación de las ventas mensuales para lo que queda de 2025, considerando patrones históricos y estacionalidades: [ESTIMACION_MENSUAL_RESTO_2025]. Ten en cuenta que esta es una proyección basada en datos históricos y no una garantía financiera.", "aggregation_period": "month", "table_columns": [], "calculation_type": "project_remaining_year_monthly", "calculation_params": {{"target_year": 2025}}}}
 
                                 **Pregunta del usuario:** "{pregunta}"
                                 """
@@ -364,10 +366,11 @@ else:
                             "calculation_params": {
                                 "type": "OBJECT",
                                 "description": "Parámetros adicionales necesarios para el cálculo (ej: {'year': 2025, 'month': 1}).",
-                                "properties": { # Se definen explícitamente las propiedades
+                                "properties": {
                                     "year": {"type": "INTEGER", "description": "Año para el cálculo."},
                                     "month": {"type": "INTEGER", "description": "Mes para el cálculo."},
-                                    "target_year": {"type": "INTEGER", "description": "Año objetivo para proyecciones."}
+                                    "target_year": {"type": "INTEGER", "description": "Año objetivo para proyecciones."},
+                                    "forecast_months": {"type": "INTEGER", "description": "Número de meses a pronosticar."} # Añadido para flexibilidad
                                 }
                             }
                         },
@@ -669,26 +672,81 @@ else:
                             else:
                                 final_summary_response = final_summary_response.replace("[ESTIMACION_RESTO_2025:.2f]", "N/A")
                         
-                        elif calculation_type == "project_remaining_year_monthly": # Nuevo cálculo para proyección mensual
+                        elif calculation_type == "project_remaining_year_monthly": # Nuevo cálculo para proyección mensual con estacionalidad
                             target_year = calculation_params.get("target_year")
                             if target_year and "Fecha" in df.columns and "Monto Facturado" in df.columns:
-                                current_date = datetime.now()
-                                current_month = current_date.month
+                                # Preparar la serie de tiempo para descomposición
+                                ts_data = df.set_index('Fecha')['Monto Facturado'].resample('MS').sum().fillna(0) # 'MS' para inicio de mes
 
-                                # Calcular promedio mensual de ventas de todos los datos históricos
-                                all_monthly_sales = df.groupby(df['Fecha'].dt.to_period('M'))['Monto Facturado'].sum()
-                                avg_monthly_sales = all_monthly_sales.mean() if not all_monthly_sales.empty else 0
+                                if len(ts_data) < 24: # Necesitamos al menos 2 años de datos para una buena estacionalidad mensual
+                                    st.warning("Se necesitan al menos 2 años de datos mensuales para una proyección con estacionalidad precisa. Recurriendo a proyección basada en promedio simple.")
+                                    # Fallback a promedio simple si no hay suficientes datos para estacionalidad
+                                    avg_monthly_sales = ts_data.mean() if not ts_data.empty else 0
+                                    
+                                    current_date = datetime.now()
+                                    current_month = current_date.month
+                                    projected_months_list = []
+                                    for month_num in range(current_month + 1, 13):
+                                        month_name = datetime(target_year, month_num, 1).strftime("%B")
+                                        projected_months_list.append(f"- {month_name.capitalize()} {target_year}: ${avg_monthly_sales:.2f}")
+                                    
+                                    final_summary_response = final_summary_response.replace("[ESTIMACION_MENSUAL_RESTO_2025]", "\n" + "\n".join(projected_months_list))
 
-                                projected_months_list = []
-                                for month_num in range(current_month + 1, 13):
-                                    month_name = datetime(target_year, month_num, 1).strftime("%B")
-                                    projected_months_list.append(f"{month_name.capitalize()} {target_year}: ${avg_monthly_sales:.2f}")
-                                
-                                if projected_months_list:
-                                    monthly_projection_str = "\n- " + "\n- ".join(projected_months_list)
-                                    final_summary_response = final_summary_response.replace("[ESTIMACION_MENSUAL_RESTO_2025]", monthly_projection_str)
                                 else:
-                                    final_summary_response = final_summary_response.replace("[ESTIMACION_MENSUAL_RESTO_2025]", "No hay meses restantes para proyectar en este año.")
+                                    try:
+                                        # Descomposición de la serie de tiempo (modelo aditivo)
+                                        # period=12 para estacionalidad mensual
+                                        decomposition = seasonal_decompose(ts_data, model='additive', period=12, extrapolate_trend='freq')
+                                        trend = decomposition.trend
+                                        seasonal = decomposition.seasonal
+
+                                        current_date = datetime.now()
+                                        current_month = current_date.month
+                                        
+                                        projected_months_list = []
+                                        for i in range(12 - current_month): # Iterar por los meses restantes del año
+                                            future_date = current_date + relativedelta(months=i+1)
+                                            future_month_num = future_date.month
+                                            future_year = future_date.year
+
+                                            # Obtener el componente estacional para el mes futuro
+                                            # Asegurarse de que el índice estacional coincida con el mes
+                                            seasonal_component = seasonal.iloc[(future_month_num - 1) % 12] # -1 porque meses son 1-12, índices 0-11
+
+                                            # Proyectar la tendencia para la fecha futura
+                                            # Esto es una simplificación, un modelo de pronóstico real usaría ARIMA/ETS
+                                            # Aquí, extendemos la última tendencia conocida o un promedio
+                                            # Para una proyección simple, tomamos la última tendencia o promedio de tendencia
+                                            if not trend.empty and not pd.isna(trend.iloc[-1]):
+                                                current_trend_value = trend.iloc[-1]
+                                            else:
+                                                current_trend_value = trend.mean() if not trend.empty else ts_data.mean() # Fallback a promedio si la tendencia es nula
+
+                                            # Proyección = Tendencia + Estacionalidad (modelo aditivo)
+                                            projected_value = current_trend_value + seasonal_component
+                                            
+                                            month_name = future_date.strftime("%B")
+                                            projected_months_list.append(f"- {month_name.capitalize()} {future_year}: ${max(0, projected_value):.2f}") # Asegurar que no haya valores negativos
+
+                                        if projected_months_list:
+                                            monthly_projection_str = "\n" + "\n".join(projected_months_list)
+                                            final_summary_response = final_summary_response.replace("[ESTIMACION_MENSUAL_RESTO_2025]", monthly_projection_str)
+                                        else:
+                                            final_summary_response = final_summary_response.replace("[ESTIMACION_MENSUAL_RESTO_2025]", "No hay meses restantes para proyectar en este año.")
+
+                                    except Exception as e:
+                                        st.error(f"Error al realizar la descomposición de series de tiempo: {e}. Asegúrate de tener suficientes datos históricos (al menos 2 años completos) para detectar estacionalidad mensual.")
+                                        final_summary_response = final_summary_response.replace("[ESTIMACION_MENSUAL_RESTO_2025]", "No se pudo generar una estimación con estacionalidad debido a un error o falta de datos.")
+                                        # Fallback a promedio simple si el modelo falla
+                                        avg_monthly_sales = ts_data.mean() if not ts_data.empty else 0
+                                        current_date = datetime.now()
+                                        current_month = current_date.month
+                                        projected_months_list = []
+                                        for month_num in range(current_month + 1, 13):
+                                            month_name = datetime(target_year, month_num, 1).strftime("%B")
+                                            projected_months_list.append(f"- {month_name.capitalize()} {target_year}: ${avg_monthly_sales:.2f}")
+                                        final_summary_response += "\n\nSe recurrió a una proyección basada en promedio simple." + "\n" + "\n".join(projected_months_list)
+
                             else:
                                 final_summary_response = final_summary_response.replace("[ESTIMACION_MENSUAL_RESTO_2025]", "N/A")
 
