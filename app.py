@@ -81,6 +81,13 @@ else:
         data = sheet.get_all_values()
         df = pd.DataFrame(data[1:], columns=data[0])
         
+        # --- Verificación de columnas esenciales al inicio ---
+        required_columns = ["Fecha", "Monto Facturado", "TipoCliente", "Estado de Pago", "Costo de Ventas", "Gastos Operativos", "Ingresos por Servicios", "Canal de Venta"]
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            st.error(f"❌ Faltan columnas esenciales en tu hoja de cálculo: {', '.join(missing_columns)}. Por favor, asegúrate de que tu hoja contenga estas columnas con los nombres exactos.")
+            st.stop()
+
         # Convertir tipos de datos
         df["Fecha"] = pd.to_datetime(df["Fecha"], errors="coerce")
         
@@ -103,6 +110,11 @@ else:
 
         # Eliminar filas con valores NaN en columnas críticas para el análisis o gráficos
         df.dropna(subset=["Fecha", "Monto Facturado"], inplace=True)
+
+        # --- Verificar si el DataFrame está vacío después de la limpieza ---
+        if df.empty:
+            st.error("⚠️ Después de cargar y limpiar los datos, no se encontraron filas válidas con 'Fecha' y 'Monto Facturado'. Por favor, revisa tu hoja de cálculo y asegúrate de que estas columnas contengan datos válidos y no estén vacías.")
+            st.stop() # Detiene la ejecución si no hay datos válidos
 
         # --- Mostrar vista previa de los datos después de la carga y limpieza ---
         st.subheader("📊 Vista previa de los datos:")
@@ -660,7 +672,8 @@ else:
                                     final_summary_response = final_summary_response.replace("[NOMBRE_CLIENTE_MAX_VENTAS]", str(max_sales_client))
                                     final_summary_response = final_summary_response.replace("[MONTO_MAX_VENTAS:.2f]", f"{max_sales_amount:.2f}")
                                 else:
-                                    final_summary_response = final_summary_response.replace("[NOMBRE_CLIENTE_MAX_VENTAS]", "N/A").replace("[MONTO_MAX_VENTAS:.2f]", "N/A")
+                                    final_summary_response = final_summary_response.replace("[NOMBRE_CLIENTE_MAX_VENTAS]", "No hay datos de clientes disponibles para este cálculo.")
+                                    final_summary_response = final_summary_response.replace("[MONTO_MAX_VENTAS:.2f]", "N/A")
                             else:
                                 final_summary_response = final_summary_response.replace("[NOMBRE_CLIENTE_MAX_VENTAS]", "N/A").replace("[MONTO_MAX_VENTAS:.2f]", "N/A")
 
