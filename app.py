@@ -193,6 +193,11 @@ else:
                 * Ej: "**Lista** las 5 transacciones con mayor Monto Facturado."
                 * Ej: "Dime el total de ventas para el Tipo Cliente 'Particular' en 2024."
 
+            * **Realizar Cálculos Financieros:**
+                * Ej: "¿Cuál es la variación porcentual en cuanto a costos financieros entre el año 2023 y 2024?"
+                * Ej: "Calcula el promedio de 'Monto Facturado' por 'Sucursal'."
+                * Ej: "Cuál es el total de 'Materiales y Pintura' para el año 2024?"
+
             * **Generar Gráficos Interactivos:**
                 * **Evolución:** "Hazme un gráfico de línea con la evolución de Monto Facturado en 2023."
                 * **Comparación:** "Muestra un gráfico de barras del Monto Facturado por mes."
@@ -330,7 +335,7 @@ else:
                                 -   `summary_response`: String. Respuesta conversacional amigable que introduce la visualización o el análisis. Para respuestas textuales, debe contener la información solicitada directamente.
                                 -   `aggregation_period`: String. Período de agregación para datos de tiempo (day, month, year) o 'none' si no aplica.
                                 -   `table_columns`: Array de strings. Lista de nombres de columnas a mostrar en una tabla. Solo aplica si chart_type es 'table'.
-                                -   `calculation_type`: String. Tipo de cálculo a realizar por Python. Enum: 'none', 'total_sales', 'max_client_sales', 'min_month_sales', 'sales_for_period', 'project_remaining_year', 'project_remaining_year_monthly', 'total_overdue_payments', 'recommendations'.
+                                -   `calculation_type`: String. Tipo de cálculo a realizar por Python. Enum: 'none', 'total_sales', 'max_client_sales', 'min_month_sales', 'sales_for_period', 'project_remaining_year', 'project_remaining_year_monthly', 'total_overdue_payments', 'percentage_variation', 'recommendations'.
                                 -   `calculation_params`: Objeto JSON. Parámetros para el cálculo (ej: {{"year": 2025}} para 'total_sales_for_year').
 
                                 **Ejemplos de cómo mapear la intención (en formato JSON válido):**
@@ -355,6 +360,9 @@ else:
                                 -   "me puedes hacer una estimacion de cual seria la venta para lo que queda de 2025 por mes, considerando estacionalidades": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "Fecha", "filter_value": "2025", "color_column": "", "start_date": "", "end_date": "", "additional_filters": [], "summary_response": "Aquí tienes una estimación de las ventas mensuales para lo que queda de [TARGET_YEAR], considerando patrones históricos y estacionalidades: [ESTIMACION_MENSUAL_RESTO_YEAR]. Ten en cuenta que esta es una proyección basada en datos históricos y no una garantía financiera.", "aggregation_period": "month", "table_columns": [], "calculation_type": "project_remaining_year_monthly", "calculation_params": {{"target_year": 2025}}}}
                                 -   "cuanta facturacion esta en estado de pago vencido": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "Estado Pago", "filter_value": "Vencido", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "El monto total facturado con estado de pago vencido es de $[TOTAL_MONTO_VENCIDO:.2f].", "aggregation_period": "none", "table_columns": [], "calculation_type": "total_overdue_payments", "calculation_params": {{}}}}
                                 -   "puedes darme insights de mejora para los proximos meses": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "", "filter_value": "", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "", "aggregation_period": "none", "table_columns": [], "calculation_type": "recommendations", "calculation_params": {{}}}}
+                                -   "cual es la variacion porcentual en cuanto a costos financieros entre año 2023 y 2024": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "", "filter_value": "", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "La variación porcentual en los costos financieros entre [YEAR1] y [YEAR2] fue del [PERCENTAGE_VARIATION:.2f]%.", "aggregation_period": "none", "table_columns": [], "calculation_type": "percentage_variation", "calculation_params": {{"column_to_analyze": "Costos Financieros", "year1": 2023, "year2": 2024}}}}
+                                -   "cual fue el promedio de Monto Facturado por Sucursal": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "", "filter_value": "", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "El promedio de Monto Facturado por Sucursal es: [AVERAGE_BY_SUCURSAL].", "aggregation_period": "none", "table_columns": [], "calculation_type": "average_by_column", "calculation_params": {{"column_to_average": "Monto Facturado", "group_by_column": "Sucursal"}}}}
+                                -   "cual es el total de Materiales y Pintura para el año 2024": {{"is_chart_request": false, "chart_type": "none", "x_axis": "", "y_axis": "", "filter_column": "Fecha", "filter_value": "2024", "color_column": "", "start_date": "", "end_date": [], "additional_filters": [], "summary_response": "El total de Materiales y Pintura para el año [YEAR] fue de $[TOTAL_MATERIALS_PAINT:.2f].", "aggregation_period": "year", "table_columns": [], "calculation_type": "total_for_column_by_year", "calculation_params": {{"column_to_sum": "Materiales y Pintura", "year": 2024}}}}
 
                                 **Pregunta del usuario:** "{pregunta}"
                                 """
@@ -431,7 +439,7 @@ else:
                             },
                             "calculation_type": {
                                 "type": "STRING",
-                                "enum": ["none", "total_sales", "max_client_sales", "min_month_sales", "sales_for_period", "project_remaining_year", "project_remaining_year_monthly", "total_overdue_payments", "recommendations"],
+                                "enum": ["none", "total_sales", "max_client_sales", "min_month_sales", "sales_for_period", "project_remaining_year", "project_remaining_year_monthly", "total_overdue_payments", "percentage_variation", "average_by_column", "total_for_column_by_year", "recommendations"],
                                 "description": "Tipo de cálculo que Python debe realizar para la respuesta textual."
                             },
                             "calculation_params": {
@@ -441,7 +449,13 @@ else:
                                     "year": {"type": "INTEGER", "description": "Año para el cálculo."},
                                     "month": {"type": "INTEGER", "description": "Mes para el cálculo."},
                                     "target_year": {"type": "INTEGER", "description": "Año objetivo para proyecciones."},
-                                    "forecast_months": {"type": "INTEGER", "description": "Número de meses a pronosticar."}
+                                    "forecast_months": {"type": "INTEGER", "description": "Número de meses a pronosticar."},
+                                    "column_to_analyze": {"type": "STRING", "description": "Columna para el análisis de variación."},
+                                    "year1": {"type": "INTEGER", "description": "Primer año para la variación."},
+                                    "year2": {"type": "INTEGER", "description": "Segundo año para la variación."},
+                                    "column_to_average": {"type": "STRING", "description": "Columna para calcular el promedio."},
+                                    "group_by_column": {"type": "STRING", "description": "Columna para agrupar el promedio."},
+                                    "column_to_sum": {"type": "STRING", "description": "Columna para sumar."}
                                 }
                             }
                         },
@@ -822,6 +836,50 @@ else:
                             else:
                                 final_summary_response = final_summary_response.replace("[TOTAL_MONTO_VENCIDO:.2f]", "N/A")
                         
+                        elif calculation_type == "percentage_variation":
+                            column_to_analyze = calculation_params.get("column_to_analyze")
+                            year1 = calculation_params.get("year1")
+                            year2 = calculation_params.get("year2")
+
+                            if column_to_analyze and year1 and year2 and column_to_analyze in df.columns and "Fecha" in df.columns:
+                                value_year1 = df[df["Fecha"].dt.year == year1][column_to_analyze].sum()
+                                value_year2 = df[df["Fecha"].dt.year == year2][column_to_analyze].sum()
+
+                                if value_year1 != 0:
+                                    percentage_var = ((value_year2 - value_year1) / value_year1) * 100
+                                    final_summary_response = final_summary_response.replace("[PERCENTAGE_VARIATION:.2f]", f"{percentage_var:.2f}").replace("[YEAR1]", str(year1)).replace("[YEAR2]", str(year2))
+                                else:
+                                    final_summary_response = final_summary_response.replace("[PERCENTAGE_VARIATION:.2f]", "N/A").replace("[YEAR1]", str(year1)).replace("[YEAR2]", str(year2)) + ". No se puede calcular la variación porque el valor del año inicial es cero."
+                            else:
+                                final_summary_response = final_summary_response.replace("[PERCENTAGE_VARIATION:.2f]", "N/A").replace("[YEAR1]", str(year1 or 'Año1')).replace("[YEAR2]", str(year2 or 'Año2')) + ". Faltan datos o columnas para calcular la variación."
+                        
+                        elif calculation_type == "average_by_column":
+                            column_to_average = calculation_params.get("column_to_average")
+                            group_by_column = calculation_params.get("group_by_column")
+
+                            if column_to_average and group_by_column and column_to_average in df.columns and group_by_column in df.columns:
+                                if pd.api.types.is_numeric_dtype(df[column_to_average]):
+                                    average_data = df.groupby(group_by_column)[column_to_average].mean().reset_index()
+                                    average_str = "\n" + average_data.to_string(index=False)
+                                    final_summary_response = final_summary_response.replace("[AVERAGE_BY_SUCURSAL]", average_str)
+                                else:
+                                    final_summary_response = final_summary_response.replace("[AVERAGE_BY_SUCURSAL]", "N/A") + f". La columna '{column_to_average}' no es numérica para calcular el promedio."
+                            else:
+                                final_summary_response = final_summary_response.replace("[AVERAGE_BY_SUCURSAL]", "N/A") + ". Faltan columnas para calcular el promedio."
+
+                        elif calculation_type == "total_for_column_by_year":
+                            column_to_sum = calculation_params.get("column_to_sum")
+                            year = calculation_params.get("year")
+
+                            if column_to_sum and year and column_to_sum in df.columns and "Fecha" in df.columns:
+                                if pd.api.types.is_numeric_dtype(df[column_to_sum]):
+                                    total_value = df[df["Fecha"].dt.year == year][column_to_sum].sum()
+                                    final_summary_response = final_summary_response.replace("[TOTAL_MATERIALS_PAINT:.2f]", f"{total_value:.2f}").replace("[YEAR]", str(year))
+                                else:
+                                    final_summary_response = final_summary_response.replace("[TOTAL_MATERIALS_PAINT:.2f]", "N/A") + f". La columna '{column_to_sum}' no es numérica para sumar."
+                            else:
+                                final_summary_response = final_summary_response.replace("[TOTAL_MATERIALS_PAINT:.2f]", "N/A") + ". Faltan datos o columnas para calcular el total."
+
                         elif calculation_type == "recommendations":
                             # This block will handle the 'recommendations' type
                             # The summary_response from the first Gemini call will be empty,
@@ -831,7 +889,7 @@ else:
 
                         # Si la summary_response de Gemini estaba vacía (indicando que se necesita un análisis profundo)
                         # o si no se pudo reemplazar un placeholder, hacer la segunda llamada a Gemini.
-                        if not final_summary_response or "[NOMBRE_CLIENTE_MAX_VENTAS]" in final_summary_response or "[ESTIMACION_RESTO_YEAR:.2f]" in final_summary_response or "[ESTIMACION_MENSUAL_RESTO_YEAR]" in final_summary_response or "[TOTAL_MONTO_VENCIDO:.2f]" in final_summary_response or "[CALCULATED_TOTAL_YEAR:.2f]" in final_summary_response or "[CALCULATED_SALES_MONTH_YEAR:.2f]" in final_summary_response:
+                        if not final_summary_response or "[NOMBRE_CLIENTE_MAX_VENTAS]" in final_summary_response or "[ESTIMACION_RESTO_YEAR:.2f]" in final_summary_response or "[ESTIMACION_MENSUAL_RESTO_YEAR]" in final_summary_response or "[TOTAL_MONTO_VENCIDO:.2f]" in final_summary_response or "[CALCULATED_TOTAL_YEAR:.2f]" in final_summary_response or "[CALCULATED_SALES_MONTH_YEAR:.2f]" in final_summary_response or "[PERCENTAGE_VARIATION:.2f]" in final_summary_response or "[AVERAGE_BY_SUCURSAL]" in final_summary_response or "[TOTAL_MATERIALS_PAINT:.2f]" in final_summary_response:
                             contexto_analisis = f"""Eres un asesor financiero estratégico e impecable. Tu misión es proporcionar análisis de alto nivel, identificar tendencias, oportunidades y desafíos, y ofrecer recomendaciones estratégicas y accionables basadas en los datos disponibles.
 
                             **Resumen completo del DataFrame (para tu análisis):**
