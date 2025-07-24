@@ -9,6 +9,7 @@ from datetime import datetime
 import numpy as np
 from statsmodels.tsa.seasonal import seasonal_decompose # Para descomposición de series de tiempo
 from dateutil.relativedelta import relativedelta # Para añadir meses fácilmente
+from io import StringIO # Para capturar la salida de df.info()
 
 # --- Configuración de Login ---
 USERNAME = "adm"
@@ -70,11 +71,6 @@ else:
         data = sheet.get_all_values()
         df = pd.DataFrame(data[1:], columns=data[0])
         
-        # --- DEBUG: Mostrar el DataFrame justo después de la carga inicial ---
-        st.subheader("DEBUG: DataFrame después de carga inicial (antes de conversiones)")
-        st.write(df.head())
-        st.write(df.info())
-
         # Convertir tipos de datos
         df["Fecha"] = pd.to_datetime(df["Fecha"], errors="coerce")
         
@@ -82,8 +78,10 @@ else:
         if 'Monto Facturado' in df.columns:
             # Convertir a string primero para aplicar métodos de string
             df['Monto Facturado'] = df['Monto Facturado'].astype(str)
-            # Eliminar caracteres no numéricos como '$', ',', espacios
-            df['Monto Facturado'] = df['Monto Facturado'].str.replace('[$, ]', '', regex=True)
+            # Eliminar símbolos de moneda y separadores de miles (puntos)
+            df['Monto Facturado'] = df['Monto Facturado'].str.replace('[$,.]', '', regex=True)
+            # Reemplazar separador decimal (coma) por punto
+            df['Monto Facturado'] = df['Monto Facturado'].str.replace(',', '.', regex=False)
             # Convertir a numérico, 'coerce' convierte errores a NaN
             df['Monto Facturado'] = pd.to_numeric(df['Monto Facturado'], errors="coerce")
         
@@ -94,17 +92,7 @@ else:
                 df[col] = pd.to_numeric(df[col], errors="coerce")
 
         # Eliminar filas con valores NaN en columnas críticas para el análisis o gráficos
-        # Esto es crucial para evitar NaTType errors en fechas y asegurar cálculos numéricos
         df.dropna(subset=["Fecha", "Monto Facturado"], inplace=True)
-
-        # --- DEBUG: Mostrar información del DataFrame después de la limpieza y conversión ---
-        st.subheader("DEBUG: DataFrame después de limpieza y conversión de tipos")
-        st.write(df.head())
-        st.write(df.info())
-        st.write(f"Suma total de 'Monto Facturado' en df (después de limpieza): {df['Monto Facturado'].sum():.2f}")
-        if df['Monto Facturado'].sum() == 0:
-            st.warning("DEBUG: La suma total de 'Monto Facturado' es 0. Esto puede causar proyecciones de 0. Por favor, revisa tu Google Sheet para asegurarte de que la columna 'Monto Facturado' contiene números válidos y no está vacía.")
-
 
         # --- Generar información dinámica de columnas para el prompt de Gemini ---
         available_columns_info = []
@@ -724,13 +712,6 @@ else:
                             if target_year and "Fecha" in df.columns and "Monto Facturado" in df.columns:
                                 ts_data = df.set_index('Fecha')['Monto Facturado'].resample('MS').sum().fillna(0)
                                 
-                                # --- DEBUG: Mostrar la serie de tiempo `ts_data` ---
-                                st.subheader("DEBUG: Serie de Tiempo Mensual (ts_data)")
-                                st.write(ts_data)
-                                st.write(f"Longitud de ts_data: {len(ts_data)}")
-                                st.write(f"Suma de ts_data: {ts_data.sum():.2f}")
-                                # --- FIN DEBUG ---
-
                                 current_date = datetime.now()
                                 current_month = current_date.month
 
@@ -739,9 +720,6 @@ else:
                                 if len(ts_data) < 24: # Necesitamos al menos 2 años de datos para una buena estacionalidad mensual
                                     st.warning("Se necesitan al menos 2 años de datos mensuales para una proyección con estacionalidad precisa. Recurriendo a proyección basada en promedio simple.")
                                     avg_monthly_sales = ts_data.mean() if not ts_data.empty else 0
-                                    # --- DEBUG: Mostrar promedio mensual si se recurre a simple ---
-                                    st.write(f"DEBUG: Promedio mensual (fallback): {avg_monthly_sales:.2f}")
-                                    # --- FIN DEBUG ---
                                     
                                     for month_num in range(current_month + 1, 13):
                                         month_name = datetime(target_year, month_num, 1).strftime("%B")
