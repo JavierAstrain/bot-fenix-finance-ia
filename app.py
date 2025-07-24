@@ -69,10 +69,17 @@ else:
         sheet = client.open_by_url(SHEET_URL).sheet1
         data = sheet.get_all_values()
         df = pd.DataFrame(data[1:], columns=data[0])
+        
+        # Convertir tipos de datos
         df["Fecha"] = pd.to_datetime(df["Fecha"], errors="coerce")
-        df["Monto Facturado"] = pd.to_numeric(df["Monto Facturado"], errors="coerce")
+        # Convertir todas las columnas numéricas relevantes a numérico
+        numeric_cols = ['Monto Facturado', 'Costo de Ventas', 'Gastos Operativos', 'Ingresos por Servicios']
+        for col in numeric_cols:
+            if col in df.columns: # Asegurarse de que la columna existe antes de intentar convertir
+                df[col] = pd.to_numeric(df[col], errors="coerce")
 
         # Eliminar filas con valores NaN en columnas críticas para el análisis o gráficos
+        # Esto es crucial para evitar NaTType errors en fechas y asegurar cálculos numéricos
         df.dropna(subset=["Fecha", "Monto Facturado"], inplace=True)
 
         # --- Generar información dinámica de columnas para el prompt de Gemini ---
@@ -80,7 +87,13 @@ else:
         for col in df.columns:
             col_type = df[col].dtype
             if pd.api.types.is_datetime64_any_dtype(df[col]):
-                available_columns_info.append(f"- '{col}' (tipo fecha, formato YYYY-MM-DD)")
+                # CORRECCIÓN: Verificar si min/max de la columna de fecha no son NaT antes de usar strftime
+                min_date = df[col].min()
+                max_date = df[col].max()
+                if pd.isna(min_date) or pd.isna(max_date):
+                    available_columns_info.append(f"- '{col}' (tipo fecha, formato YYYY-MM-DD, con valores nulos)")
+                else:
+                    available_columns_info.append(f"- '{col}' (tipo fecha, formato YYYY-MM-DD, rango: {min_date.strftime('%Y-%m-%d')} a {max_date.strftime('%Y-%m-%d')})")
             elif pd.api.types.is_numeric_dtype(df[col]):
                 available_columns_info.append(f"- '{col}' (tipo numérico)")
             else:
@@ -108,7 +121,12 @@ else:
             if pd.api.types.is_numeric_dtype(df[col]):
                 col_info += f" Estadísticas: Min={df[col].min():.2f}, Max={df[col].max():.2f}, Media={df[col].mean():.2f}, Suma={df[col].sum():.2f}"
             elif pd.api.types.is_datetime64_any_dtype(df[col]):
-                col_info += f" Rango de fechas: [{df[col].min().strftime('%Y-%m-%d')} a {df[col].max().strftime('%Y-%m-%d')}]"
+                min_date = df[col].min()
+                max_date = df[col].max()
+                if not pd.isna(min_date) and not pd.isna(max_date): # CORRECCIÓN: Verificar NaT aquí también
+                    col_info += f" Rango de fechas: [{min_date.strftime('%Y-%m-%d')} a {max_date.strftime('%Y-%m-%d')}]"
+                else:
+                    col_info += " Rango de fechas: (Contiene valores nulos o inválidos)"
             elif pd.api.types.is_object_dtype(df[col]) or pd.api.types.is_string_dtype(df[col]):
                 top_values_counts = df[col].value_counts().nlargest(10)
                 if not top_values_counts.empty:
@@ -152,7 +170,7 @@ else:
 
             * **Hacer Estimaciones y Proyecciones (con cautela y estacionalidad):**
                 * Ej: "¿Podrías proyectar el Monto Facturado para el próximo mes basándote en los datos históricos?"
-                * **Ej: "Hazme una estimación de la venta para lo que queda de 2025 por mes, considerando estacionalidades."** (¡Nuevo ejemplo clave!)
+                * **Ej: "Hazme una estimación de la venta para lo que queda de 2025 por mes, considerando estacionalidades."**
                 * **Alcance:** Las proyecciones se basan en los datos históricos proporcionados y utilizan modelos de series de tiempo para intentar capturar estacionalidades. **No son consejos financieros garantizados y su precisión depende de la calidad y extensión de tus datos históricos.**
 
             * **Recibir Recomendaciones Estratégicas:**
@@ -189,7 +207,7 @@ else:
                     }
                     try:
                         with st.spinner("Realizando prueba de API Key..."):
-                            test_response = requests.post(test_api_url, headers={"Content-Type": "application/json"}, json=test_payload, timeout=10)
+                            test_response = requests.post(api_url, headers={"Content-Type": "application/json"}, json=test_payload, timeout=10)
                         
                         st.subheader("Resultado de la Prueba:")
                         st.write(f"Código de estado HTTP: {test_response.status_code}")
@@ -253,14 +271,20 @@ else:
                                 **Resumen completo del DataFrame (para entender el contexto y los valores):**
                                 {df_summary_str}
 
-                                **Consideraciones para la respuesta JSON:**
-                                -   `x_axis` y `y_axis`: Nombres de columnas exactos. Vacío si no aplica (para textual o algunas tablas).
-                                -   `color_column`: Nombre de columna exacto para segmentación. Vacío si no aplica.
-                                -   `filter_column` y `filter_value`: Para filtros específicos (ej: 'Fecha' para '2025', 'TipoCliente' para 'Particular').
-                                -   `start_date` y `end_date`: Para rangos de fecha (YYYY-MM-DD).
-                                -   `aggregation_period`: **Muy importante.** Debe ser 'day', 'month', 'year' o 'none' según la granularidad solicitada por el usuario o la más lógica para la visualización/análisis. Por ejemplo, "ventas mensuales" -> 'month'. "ventas totales de 2024" -> 'year'. "ventas por cliente" -> 'none' (ya que no es una agregación temporal).
-                                -   `table_columns`: Una lista de strings con los nombres exactos de las columnas que deben mostrarse en una tabla. Solo aplica si `chart_type` es `table`. Si es una tabla de resumen (ej. ventas por cliente), incluye las columnas de agrupación y la columna de valor.
-                                -   `summary_response`: Una respuesta conversacional amigable que introduce la visualización o el análisis. Para respuestas textuales, debe contener la información solicitada directamente.
+                                **Consideraciones para la respuesta JSON (todos los campos son obligatorios):**
+                                -   `is_chart_request`: Booleano. True si el usuario pide un gráfico o tabla, false en caso contrario.
+                                -   `chart_type`: String. Tipo de visualización (line, bar, pie, scatter, table). 'none' si no es una visualización o tipo no claro.
+                                -   `x_axis`: String. Nombre de la columna para el eje X (ej: 'Fecha'). Vacío si no es gráfico.
+                                -   `y_axis`: String. Nombre de la columna para el eje Y (ej: 'Monto Facturado'). Vacío si no es gráfico.
+                                -   `color_column`: String. Nombre de la columna para colorear/agrupar (ej: 'TipoCliente'). Vacío si no se pide segmentación o la columna no existe.
+                                -   `filter_column`: String. Columna para filtro principal (ej: 'Fecha' para año). Vacío si no hay filtro principal.
+                                -   `filter_value`: String. Valor para filtro principal (ej: '2025', 'Enero'). Vacío si no hay filtro principal.
+                                -   `start_date`: String. Fecha de inicio del rango (YYYY-MM-DD). Vacío si no hay rango.
+                                -   `end_date`: String. Fecha de fin del rango (YYYY-MM-DD). Vacío si no hay rango.
+                                -   `additional_filters`: Array de objetos. Lista de filtros adicionales por columna. Cada objeto tiene 'column' (string) y 'value' (string).
+                                -   `summary_response`: String. Respuesta conversacional amigable que introduce la visualización o el análisis. Para respuestas textuales, debe contener la información solicitada directamente.
+                                -   `aggregation_period`: String. Período de agregación para datos de tiempo (day, month, year) o 'none' si no aplica.
+                                -   `table_columns`: Array de strings. Lista de nombres de columnas a mostrar en una tabla. Solo aplica si chart_type es 'table'.
                                 -   `calculation_type`: String. Tipo de cálculo a realizar por Python. Enum: 'none', 'total_sales', 'max_client_sales', 'min_month_sales', 'sales_for_period', 'project_remaining_year', 'project_remaining_year_monthly'.
                                 -   `calculation_params`: Objeto JSON. Parámetros para el cálculo (ej: {{"year": 2025}} para 'total_sales_for_year').
 
@@ -370,7 +394,7 @@ else:
                                     "year": {"type": "INTEGER", "description": "Año para el cálculo."},
                                     "month": {"type": "INTEGER", "description": "Mes para el cálculo."},
                                     "target_year": {"type": "INTEGER", "description": "Año objetivo para proyecciones."},
-                                    "forecast_months": {"type": "INTEGER", "description": "Número de meses a pronosticar."} # Añadido para flexibilidad
+                                    "forecast_months": {"type": "INTEGER", "description": "Número de meses a pronosticar."}
                                 }
                             }
                         },
@@ -672,20 +696,20 @@ else:
                             else:
                                 final_summary_response = final_summary_response.replace("[ESTIMACION_RESTO_2025:.2f]", "N/A")
                         
-                        elif calculation_type == "project_remaining_year_monthly": # Nuevo cálculo para proyección mensual con estacionalidad
+                        elif calculation_type == "project_remaining_year_monthly":
                             target_year = calculation_params.get("target_year")
                             if target_year and "Fecha" in df.columns and "Monto Facturado" in df.columns:
-                                # Preparar la serie de tiempo para descomposición
-                                ts_data = df.set_index('Fecha')['Monto Facturado'].resample('MS').sum().fillna(0) # 'MS' para inicio de mes
+                                ts_data = df.set_index('Fecha')['Monto Facturado'].resample('MS').sum().fillna(0)
 
+                                current_date = datetime.now()
+                                current_month = current_date.month
+
+                                projected_months_list = []
+                                
                                 if len(ts_data) < 24: # Necesitamos al menos 2 años de datos para una buena estacionalidad mensual
                                     st.warning("Se necesitan al menos 2 años de datos mensuales para una proyección con estacionalidad precisa. Recurriendo a proyección basada en promedio simple.")
-                                    # Fallback a promedio simple si no hay suficientes datos para estacionalidad
                                     avg_monthly_sales = ts_data.mean() if not ts_data.empty else 0
                                     
-                                    current_date = datetime.now()
-                                    current_month = current_date.month
-                                    projected_months_list = []
                                     for month_num in range(current_month + 1, 13):
                                         month_name = datetime(target_year, month_num, 1).strftime("%B")
                                         projected_months_list.append(f"- {month_name.capitalize()} {target_year}: ${avg_monthly_sales:.2f}")
@@ -694,39 +718,26 @@ else:
 
                                 else:
                                     try:
-                                        # Descomposición de la serie de tiempo (modelo aditivo)
-                                        # period=12 para estacionalidad mensual
                                         decomposition = seasonal_decompose(ts_data, model='additive', period=12, extrapolate_trend='freq')
                                         trend = decomposition.trend
                                         seasonal = decomposition.seasonal
 
-                                        current_date = datetime.now()
-                                        current_month = current_date.month
-                                        
-                                        projected_months_list = []
-                                        for i in range(12 - current_month): # Iterar por los meses restantes del año
+                                        for i in range(12 - current_month):
                                             future_date = current_date + relativedelta(months=i+1)
                                             future_month_num = future_date.month
                                             future_year = future_date.year
 
-                                            # Obtener el componente estacional para el mes futuro
-                                            # Asegurarse de que el índice estacional coincida con el mes
-                                            seasonal_component = seasonal.iloc[(future_month_num - 1) % 12] # -1 porque meses son 1-12, índices 0-11
+                                            seasonal_component = seasonal.iloc[(future_month_num - 1) % 12]
 
-                                            # Proyectar la tendencia para la fecha futura
-                                            # Esto es una simplificación, un modelo de pronóstico real usaría ARIMA/ETS
-                                            # Aquí, extendemos la última tendencia conocida o un promedio
-                                            # Para una proyección simple, tomamos la última tendencia o promedio de tendencia
                                             if not trend.empty and not pd.isna(trend.iloc[-1]):
                                                 current_trend_value = trend.iloc[-1]
                                             else:
-                                                current_trend_value = trend.mean() if not trend.empty else ts_data.mean() # Fallback a promedio si la tendencia es nula
+                                                current_trend_value = trend.mean() if not trend.empty else ts_data.mean()
 
-                                            # Proyección = Tendencia + Estacionalidad (modelo aditivo)
                                             projected_value = current_trend_value + seasonal_component
                                             
                                             month_name = future_date.strftime("%B")
-                                            projected_months_list.append(f"- {month_name.capitalize()} {future_year}: ${max(0, projected_value):.2f}") # Asegurar que no haya valores negativos
+                                            projected_months_list.append(f"- {month_name.capitalize()} {future_year}: ${max(0, projected_value):.2f}")
 
                                         if projected_months_list:
                                             monthly_projection_str = "\n" + "\n".join(projected_months_list)
@@ -739,8 +750,6 @@ else:
                                         final_summary_response = final_summary_response.replace("[ESTIMACION_MENSUAL_RESTO_2025]", "No se pudo generar una estimación con estacionalidad debido a un error o falta de datos.")
                                         # Fallback a promedio simple si el modelo falla
                                         avg_monthly_sales = ts_data.mean() if not ts_data.empty else 0
-                                        current_date = datetime.now()
-                                        current_month = current_date.month
                                         projected_months_list = []
                                         for month_num in range(current_month + 1, 13):
                                             month_name = datetime(target_year, month_num, 1).strftime("%B")
@@ -821,5 +830,5 @@ else:
                 st.exception(e)
 
     except Exception as e:
-        st.error("❌ No se pudo cargar la hoja de cálculo. Asegúrate de que la URL es correcta y las credenciales de Google Sheets están configuradas.")
+        st.error("❌ No se pudo cargar la hoja de cálculo. Asegúrate de que la URL es correcta y las credenciales de Google Sheets están configuradas. También verifica que los nombres de las columnas en tu hoja coincidan con los esperados: 'Fecha', 'Monto Facturado', 'TipoCliente', 'Costo de Ventas', 'Gastos Operativos', 'Ingresos por Servicios', 'Canal de Venta'.")
         st.exception(e)
