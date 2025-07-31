@@ -54,7 +54,7 @@ else:
             st.image("logo_high_resolution.jpg", width=150) # Ajusta el ancho según sea necesario
         except FileNotFoundError:
             st.warning("No se encontró el archivo 'logo_high_resolution.jpg'. Asegúrate de que esté en la misma carpeta.")
-
+    
     st.write("Haz preguntas en lenguaje natural sobre tu información financiera.")
     
 
@@ -71,7 +71,7 @@ else:
         st.error("❌ Error al cargar las credenciales de Google.")
         st.exception(e)
         st.stop()
-
+    
 
     # --- CARGA DATOS DESDE GOOGLE SHEET ---
     SHEET_URL = "https://docs.google.com/spreadsheets/d/1mXxUmIQ44rd9escHOee2w0LxGs4MVNXaPrUeqj4USpk/edit?gid=0#gid=0"
@@ -79,7 +79,7 @@ else:
     try:
         # --- CARGA DINÁMICA DE HOJAS DESDE GOOGLE SHEET ---
     SHEET_URL = "https://docs.google.com/spreadsheets/d/1SaXuzhY_sJ9Tk9MOLDLAI4OVdsNbCP-X4L8cP15yTqo/"
-
+    
     try:
         spreadsheet = client.open_by_url(SHEET_URL)
         sheet_names = [s.title for s in spreadsheet.worksheets()]
@@ -87,7 +87,7 @@ else:
         sheet = spreadsheet.worksheet(selected_sheet_name)
         data = sheet.get_all_values()
         df = pd.DataFrame(data[1:], columns=data[0])
-
+    
         # Limpiar nombres de columnas
         df.columns = df.columns.str.strip()
         
@@ -268,7 +268,7 @@ else:
                         st.subheader("Resultado de la Prueba:")
                         st.write(f"Código de estado HTTP: {test_response.status_code}")
                         st.json(test_response.json())
-
+    
                         if test_response.status_code == 200:
                             st.success("✅ ¡La API Key parece estar funcionando correctamente!")
                             if "candidates" in test_response.json() and len(test_response.json()["candidates"]) > 0:
@@ -305,7 +305,7 @@ else:
             except KeyError:
                 st.error("❌ GOOGLE_GEMINI_API_KEY no encontrada en st.secrets. Por favor, configúrala en .streamlit/secrets.toml")
                 st.stop()
-
+    
             api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={google_gemini_api_key}"
 
             # --- PRIMERA LLAMADA A GEMINI: DETECTAR INTENCIÓN Y EXTRAER PARÁMETROS ---
@@ -493,7 +493,7 @@ else:
                            "content" in chart_response_json["candidates"][0] and \
                            "parts" in chart_response_json["candidates"][0]["content"] and \
                            len(chart_response_json["candidates"][0]["content"]["parts"]) > 0:
-
+    
                             chart_data_raw = chart_response_json["candidates"][0]["content"]["parts"][0]["text"]
                             try:
                                 chart_data = json.loads(chart_data_raw)
@@ -509,7 +509,7 @@ else:
                         st.error(f"❌ Error al consultar la API de la IA para detección de visualización: {chart_response.status_code}")
                         st.text(chart_response.text)
                         st.stop()
-
+    
                     if chart_data.get("is_chart_request"):
                         st.success(chart_data.get("summary_response", "Aquí tienes la visualización solicitada:"))
 
@@ -537,7 +537,7 @@ else:
                                     filtered_df = filtered_df[filtered_df[chart_data["filter_column"]].astype(str).str.contains(chart_data["filter_value"], case=False, na=False)]
                                 else:
                                     st.warning(f"La columna '{chart_data['filter_column']}' para filtro principal no se encontró.")
-
+    
 
                         # --- Aplicar filtros por rango de fechas (start_date, end_date) ---
                         if chart_data.get("start_date"):
@@ -552,7 +552,7 @@ else:
                                 filtered_df = filtered_df[filtered_df["Fecha"] <= end_dt]
                             except ValueError:
                                 st.warning(f"Formato de fecha de fin inválido: {chart_data['end_date']}. No se aplicó el filtro.")
-
+    
                         # --- Aplicar filtros adicionales ---
                         if chart_data.get("additional_filters"):
                             for add_filter in chart_data["additional_filters"]:
@@ -801,7 +801,7 @@ else:
                                         decomposition = seasonal_decompose(ts_data, model='additive', period=12, extrapolate_trend='freq')
                                         trend = decomposition.trend
                                         seasonal = decomposition.seasonal
-
+    
                                         for i in range(12 - current_month):
                                             future_date = current_date + relativedelta(months=i+1)
                                             future_month_num = future_date.month
