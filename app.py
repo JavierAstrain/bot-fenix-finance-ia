@@ -50,7 +50,7 @@ else:
         st.title("🤖 Bot Fénix Finance IA")
 
     with col_logo:
-    try:
+        try:
         SHEET_URL = "https://docs.google.com/spreadsheets/d/1SaXuzhY_sJ9Tk9MOLDLAI4OVdsNbCP-X4L8cP15yTqo/"
         spreadsheet = client.open_by_url(SHEET_URL)
         sheet_names = [s.title for s in spreadsheet.worksheets()]
@@ -61,7 +61,7 @@ else:
         df.columns = df.columns.str.strip()
 
     # --- CREDENCIALES GOOGLE DESDE SECRETS ---
-    try:
+        try:
         SHEET_URL = "https://docs.google.com/spreadsheets/d/1SaXuzhY_sJ9Tk9MOLDLAI4OVdsNbCP-X4L8cP15yTqo/"
         spreadsheet = client.open_by_url(SHEET_URL)
         sheet_names = [s.title for s in spreadsheet.worksheets()]
@@ -74,7 +74,7 @@ else:
     # --- CARGA DATOS DESDE GOOGLE SHEET ---
     SHEET_URL = "https://docs.google.com/spreadsheets/d/1mXxUmIQ44rd9escHOee2w0LxGs4MVNXaPrUeqj4USpk/edit?gid=0#gid=0"
 
-    try:
+        try:
         SHEET_URL = "https://docs.google.com/spreadsheets/d/1SaXuzhY_sJ9Tk9MOLDLAI4OVdsNbCP-X4L8cP15yTqo/"
         spreadsheet = client.open_by_url(SHEET_URL)
         sheet_names = [s.title for s in spreadsheet.worksheets()]
@@ -83,7 +83,7 @@ else:
         data = sheet.get_all_values()
         df = pd.DataFrame(data[1:], columns=data[0])
         df.columns = df.columns.str.strip()
-    try:
+        try:
         SHEET_URL = "https://docs.google.com/spreadsheets/d/1SaXuzhY_sJ9Tk9MOLDLAI4OVdsNbCP-X4L8cP15yTqo/"
         spreadsheet = client.open_by_url(SHEET_URL)
         sheet_names = [s.title for s in spreadsheet.worksheets()]
@@ -260,7 +260,7 @@ else:
                             }
                         ]
                     }
-                    try:
+                        try:
                         with st.spinner("Realizando prueba de API Key..."):
                             test_response = requests.post(test_api_url, headers={"Content-Type": "application/json"}, json=test_payload, timeout=10)
                         
@@ -299,7 +299,7 @@ else:
             st.session_state.question_history = st.session_state.question_history[-5:]
 
             # --- Configuración para la API de Google Gemini ---
-            try:
+                try:
                 google_gemini_api_key = st.secrets["GOOGLE_GEMINI_API_KEY"]
             except KeyError:
                 st.error("❌ GOOGLE_GEMINI_API_KEY no encontrada en st.secrets. Por favor, configúrala en .streamlit/secrets.toml")
@@ -482,7 +482,7 @@ else:
                 }
             }
 
-            try:
+                try:
                 with st.spinner("Analizando su solicitud y preparando la visualización/análisis..."):
                     chart_response = requests.post(api_url, headers={"Content-Type": "application/json"}, json=chart_detection_payload)
                     if chart_response.status_code == 200:
@@ -494,7 +494,7 @@ else:
                            len(chart_response_json["candidates"][0]["content"]["parts"]) > 0:
     
                             chart_data_raw = chart_response_json["candidates"][0]["content"]["parts"][0]["text"]
-                            try:
+                                try:
                                 chart_data = json.loads(chart_data_raw)
                             except json.JSONDecodeError as e:
                                 st.error(f"❌ Error al procesar la respuesta JSON del modelo. El modelo devolvió JSON inválido: {e}")
@@ -517,7 +517,7 @@ else:
                         # --- Aplicar filtro principal (año/mes) ---
                         if chart_data["filter_column"] and chart_data["filter_value"]:
                             if chart_data["filter_column"] == "Fecha":
-                                try:
+                                    try:
                                     year_to_filter = int(chart_data["filter_value"])
                                     filtered_df = filtered_df[filtered_df["Fecha"].dt.year == year_to_filter]
                                 except ValueError:
@@ -540,13 +540,13 @@ else:
 
                         # --- Aplicar filtros por rango de fechas (start_date, end_date) ---
                         if chart_data.get("start_date"):
-                            try:
+                                try:
                                 start_dt = pd.to_datetime(chart_data["start_date"])
                                 filtered_df = filtered_df[filtered_df["Fecha"] >= start_dt]
                             except ValueError:
                                 st.warning(f"Formato de fecha de inicio inválido: {chart_data['start_date']}. No se aplicó el filtro.")
                         if chart_data.get("end_date"):
-                            try:
+                                try:
                                 end_dt = pd.to_datetime(chart_data["end_date"])
                                 filtered_df = filtered_df[filtered_df["Fecha"] <= end_dt]
                             except ValueError:
@@ -796,7 +796,7 @@ else:
                                     final_summary_response = final_summary_response.replace("[ESTIMACION_MENSUAL_RESTO_YEAR]", "\n" + "\n".join(projected_months_list)).replace("[TARGET_YEAR]", str(target_year))
 
                                 else:
-                                    try:
+                                        try:
                                         decomposition = seasonal_decompose(ts_data, model='additive', period=12, extrapolate_trend='freq')
                                         trend = decomposition.trend
                                         seasonal = decomposition.seasonal
@@ -1005,3 +1005,4 @@ else:
     except Exception as e:
         st.error("❌ No se pudo cargar la hoja de cálculo. Asegúrate de que la URL es correcta y las credenciales de Google Sheets están configuradas. También verifica que los nombres de las columnas en tu hoja coincidan con los esperados: 'Fecha', 'Monto Facturado', 'Tipo Cliente', 'Materiales y Pintura', 'Costos Financieros', 'Sucursal', 'Ejecutivo', 'Estado Pago', 'Forma de Pago', 'Descuento Aplicado (%), 'Observaciones'.")
         st.exception(e)
+
