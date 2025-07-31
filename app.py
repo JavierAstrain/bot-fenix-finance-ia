@@ -74,7 +74,7 @@ else:
 
 
     # --- CARGA DATOS DESDE GOOGLE SHEET ---
-    # --- NUEVA URL CON MÚLTIPLES HOJAS ---
+# --- NUEVA URL CON MÚLTIPLES HOJAS ---
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1SaXuzhY_sJ9Tk9MOLDLAI4OVdsNbCP-X4L8cP15yTqo/edit#gid=0"
 SHEET_NAMES = ["RECEPCION", "REPARACION", "FACTURACION", "FINANZAS"]
 
@@ -98,6 +98,7 @@ except Exception as e:
     st.error("❌ No se pudo cargar una o más hojas del Google Sheets.")
     st.exception(e)
     st.stop()
+
 
         
         # --- Limpiar nombres de columnas (eliminar espacios en blanco alrededor) ---
