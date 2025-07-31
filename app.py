@@ -74,10 +74,7 @@ else:
 
 
     # --- CARGA DATOS DESDE GOOGLE SHEET ---
-    SHEET_URL = "https://docs.google.com/spreadsheets/d/1mXxUmIQ44rd9escHOee2w0LxGs4MVNXaPrUeqj4USpk/edit?gid=0#gid=0"
-
-    try:
-        SHEET_URL = "https://docs.google.com/spreadsheets/d/1SaXuzhY_sJ9Tk9MOLDLAI4OVdsNbCP-X4L8cP15yTqo"
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1SaXuzhY_sJ9Tk9MOLDLAI4OVdsNbCP-X4L8cP15yTqo"
 SHEET_NAMES = ["RECEPCION", "REPARACION", "FACTURACION", "FINANZAS"]
 
 try:
