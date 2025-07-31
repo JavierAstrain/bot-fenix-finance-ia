@@ -76,24 +76,29 @@ else:
     # --- CARGA DATOS DESDE GOOGLE SHEET ---
     # --- NUEVA URL CON MÚLTIPLES HOJAS ---
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1SaXuzhY_sJ9Tk9MOLDLAI4OVdsNbCP-X4L8cP15yTqo/edit#gid=0"
-
-# --- Nombres reales de las hojas de la planilla ---
 SHEET_NAMES = ["RECEPCION", "REPARACION", "FACTURACION", "FINANZAS"]
 
-    try:
-         spreadsheet = client.open_by_url(SHEET_URL)
-         sheet_dataframes = {}
+# --- CARGA DE HOJAS MÚLTIPLES ---
+try:
+    spreadsheet = client.open_by_url(SHEET_URL)
+    sheet_dataframes = {}
 
-         for sheet_name in SHEET_NAMES:
-             sheet = spreadsheet.worksheet(sheet_name)
-             data = sheet.get_all_values()
-             df_temp = pd.DataFrame(data[1:], columns=data[0])
-             df_temp.columns = df_temp.columns.str.strip()
-             sheet_dataframes[sheet_name] = df_temp
+    for sheet_name in SHEET_NAMES:
+        sheet = spreadsheet.worksheet(sheet_name)
+        data = sheet.get_all_values()
+        df_temp = pd.DataFrame(data[1:], columns=data[0])
+        df_temp.columns = df_temp.columns.str.strip()
+        sheet_dataframes[sheet_name] = df_temp
 
-         # Selector para elegir cuál hoja quieres analizar
-         selected_sheet = st.selectbox("Selecciona la hoja a analizar:", SHEET_NAMES)
-         df = sheet_dataframes[selected_sheet]
+    # Selector visual para elegir la hoja
+    selected_sheet = st.selectbox("Selecciona la hoja a analizar:", SHEET_NAMES)
+    df = sheet_dataframes[selected_sheet]
+
+except Exception as e:
+    st.error("❌ No se pudo cargar una o más hojas del Google Sheets.")
+    st.exception(e)
+    st.stop()
+
         
         # --- Limpiar nombres de columnas (eliminar espacios en blanco alrededor) ---
         df.columns = df.columns.str.strip()
