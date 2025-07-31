@@ -1,5 +1,8 @@
 streamlit
 pandas
-openpyxl
-tabulate
-google-generativeai
+gspread
+requests
+plotly
+numpy
+statsmodels
+python-dateutil
