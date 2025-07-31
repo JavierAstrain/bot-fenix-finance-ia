@@ -1,43 +1,49 @@
-
 import streamlit as st
 import pandas as pd
-import os
 import google.generativeai as genai
+from io import BytesIO
 
-st.set_page_config(page_title="Asesor Financiero IA - Fénix", layout="wide")
+# --- Configurar clave API ---
+genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+
+# --- Cargar archivo ---
+st.set_page_config(page_title="📊 Asesor Financiero con IA - Fénix Automotriz")
 st.title("📊 Asesor Financiero con IA para Fénix Automotriz")
+uploaded_file = st.file_uploader("📂 Sube un archivo Excel (.xlsx) con múltiples hojas", type=["xlsx"])
 
-# Carga de archivo Excel
-uploaded_file = st.file_uploader("📁 Sube un archivo Excel (.xlsx) con múltiples hojas", type=["xlsx"])
+if uploaded_file is not None:
+    try:
+        excel_data = pd.read_excel(uploaded_file, sheet_name=None)  # leer TODAS las hojas
+        sheet_names = list(excel_data.keys())
 
-if uploaded_file:
-    xls = pd.ExcelFile(uploaded_file)
-    sheet_names = xls.sheet_names
-    selected_sheet = st.selectbox("🗂 Selecciona una hoja para analizar", sheet_names)
-    df = pd.read_excel(xls, sheet_name=selected_sheet)
-    df.columns = df.columns.str.strip()
+        st.success(f"Se cargaron {len(sheet_names)} hojas: {', '.join(sheet_names)}")
 
-    st.subheader("📌 Vista previa de los datos:")
-    st.dataframe(df.head(10))
+        # Mostrar vista previa de cada hoja
+        for sheet in sheet_names:
+            st.subheader(f"📄 Vista previa: {sheet}")
+            st.dataframe(excel_data[sheet].head(10))
 
-    # Configurar Gemini
-    genai.configure(api_key=st.secrets["GOOGLE_GEMINI_API_KEY"])
-    model = genai.GenerativeModel("gemini-pro")
+        # Convertir todas las hojas en texto para análisis
+        full_context = ""
+        for name, df in excel_data.items():
+            full_context += f"Hoja: {name}\n{df.head(100).to_string(index=False)}\n\n"
 
-    # Preparar contexto
-    context_columns = ", ".join(df.columns)
-    context = f"Actúa como un asesor financiero experto. Estás analizando una hoja llamada '{selected_sheet}' con las siguientes columnas: {context_columns}. El usuario te hará preguntas relacionadas con los datos. Responde de forma clara, precisa y profesional."
+        # Entrada de pregunta
+        st.markdown("### 💬 Pregúntale a la IA sobre estos datos:")
+        question = st.text_input("Escribe tu pregunta:")
 
-    st.divider()
-    st.subheader("💬 Pregúntale a la IA sobre estos datos:")
-    user_question = st.text_input("Escribe tu pregunta:")
+        if question:
+            model = genai.GenerativeModel("gemini-pro")
+            prompt = f'''Eres un analista financiero inteligente. Responde en español preguntas del usuario sobre los datos que vienen a continuación.
+Datos:
+{full_context}
 
-    if user_question:
-        preview = df.head(30).to_markdown(index=False)
-        full_prompt = f"{context}\n\nDatos:\n{preview}\n\nPregunta del usuario: {user_question}"
-        with st.spinner("Pensando..."):
-            response = model.generate_content(full_prompt)
-            st.success(response.text)
-else:
-    st.info("🔄 Por favor, sube un archivo Excel para comenzar.")
+Pregunta: {question}
+Responde en lenguaje claro y profesional.'''
 
+            with st.spinner("Pensando..."):
+                response = model.generate_content(prompt)
+                st.markdown("### 🤖 Respuesta de la IA:")
+                st.write(response.text)
+    except Exception as e:
+        st.error(f"Error al procesar el archivo: {e}")
