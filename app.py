@@ -50,48 +50,47 @@ else:
         st.title("🤖 Bot Fénix Finance IA")
 
     with col_logo:
-        try:
-            st.image("logo_high_resolution.jpg", width=150) # Ajusta el ancho según sea necesario
-        except FileNotFoundError:
-            st.warning("No se encontró el archivo 'logo_high_resolution.jpg'. Asegúrate de que esté en la misma carpeta.")
-    
-    st.write("Haz preguntas en lenguaje natural sobre tu información financiera.")
-    
-
-    # --- CREDENCIALES GOOGLE DESDE SECRETS ---
     try:
-        creds_dict = json.loads(st.secrets["GOOGLE_CREDENTIALS"])
-        scope = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
-        creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
-        client = gspread.authorize(creds)
-    except KeyError:
-        st.error("❌ GOOGLE_CREDENTIALS no encontradas en st.secrets. Asegúrate de configurarlas correctamente.")
-        st.stop()
-    except Exception as e:
-        st.error("❌ Error al cargar las credenciales de Google.")
-        st.exception(e)
-        st.stop()
-    
-
-    # --- CARGA DATOS DESDE GOOGLE SHEET ---
-    SHEET_URL = "https://docs.google.com/spreadsheets/d/1mXxUmIQ44rd9escHOee2w0LxGs4MVNXaPrUeqj4USpk/edit?gid=0#gid=0"
-
-    try:
-        # --- CARGA DINÁMICA DE HOJAS DESDE GOOGLE SHEET ---
-    SHEET_URL = "https://docs.google.com/spreadsheets/d/1SaXuzhY_sJ9Tk9MOLDLAI4OVdsNbCP-X4L8cP15yTqo/"
-    
-    try:
+        SHEET_URL = "https://docs.google.com/spreadsheets/d/1SaXuzhY_sJ9Tk9MOLDLAI4OVdsNbCP-X4L8cP15yTqo/"
         spreadsheet = client.open_by_url(SHEET_URL)
         sheet_names = [s.title for s in spreadsheet.worksheets()]
         selected_sheet_name = st.selectbox("📂 Selecciona una hoja para analizar:", sheet_names)
         sheet = spreadsheet.worksheet(selected_sheet_name)
         data = sheet.get_all_values()
         df = pd.DataFrame(data[1:], columns=data[0])
-    
-        # Limpiar nombres de columnas
         df.columns = df.columns.str.strip()
-        
-        # --- Limpiar nombres de columnas (eliminar espacios en blanco alrededor) ---
+
+    # --- CREDENCIALES GOOGLE DESDE SECRETS ---
+    try:
+        SHEET_URL = "https://docs.google.com/spreadsheets/d/1SaXuzhY_sJ9Tk9MOLDLAI4OVdsNbCP-X4L8cP15yTqo/"
+        spreadsheet = client.open_by_url(SHEET_URL)
+        sheet_names = [s.title for s in spreadsheet.worksheets()]
+        selected_sheet_name = st.selectbox("📂 Selecciona una hoja para analizar:", sheet_names)
+        sheet = spreadsheet.worksheet(selected_sheet_name)
+        data = sheet.get_all_values()
+        df = pd.DataFrame(data[1:], columns=data[0])
+        df.columns = df.columns.str.strip()
+
+    # --- CARGA DATOS DESDE GOOGLE SHEET ---
+    SHEET_URL = "https://docs.google.com/spreadsheets/d/1mXxUmIQ44rd9escHOee2w0LxGs4MVNXaPrUeqj4USpk/edit?gid=0#gid=0"
+
+    try:
+        SHEET_URL = "https://docs.google.com/spreadsheets/d/1SaXuzhY_sJ9Tk9MOLDLAI4OVdsNbCP-X4L8cP15yTqo/"
+        spreadsheet = client.open_by_url(SHEET_URL)
+        sheet_names = [s.title for s in spreadsheet.worksheets()]
+        selected_sheet_name = st.selectbox("📂 Selecciona una hoja para analizar:", sheet_names)
+        sheet = spreadsheet.worksheet(selected_sheet_name)
+        data = sheet.get_all_values()
+        df = pd.DataFrame(data[1:], columns=data[0])
+        df.columns = df.columns.str.strip()
+    try:
+        SHEET_URL = "https://docs.google.com/spreadsheets/d/1SaXuzhY_sJ9Tk9MOLDLAI4OVdsNbCP-X4L8cP15yTqo/"
+        spreadsheet = client.open_by_url(SHEET_URL)
+        sheet_names = [s.title for s in spreadsheet.worksheets()]
+        selected_sheet_name = st.selectbox("📂 Selecciona una hoja para analizar:", sheet_names)
+        sheet = spreadsheet.worksheet(selected_sheet_name)
+        data = sheet.get_all_values()
+        df = pd.DataFrame(data[1:], columns=data[0])
         df.columns = df.columns.str.strip()
 
         # --- Verificación de columnas esenciales al inicio (con los nombres exactos del usuario) ---
