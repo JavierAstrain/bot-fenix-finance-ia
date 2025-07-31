@@ -51,46 +51,48 @@ else:
 
     with col_logo:
         try:
-        SHEET_URL = "https://docs.google.com/spreadsheets/d/1SaXuzhY_sJ9Tk9MOLDLAI4OVdsNbCP-X4L8cP15yTqo/"
-        spreadsheet = client.open_by_url(SHEET_URL)
-        sheet_names = [s.title for s in spreadsheet.worksheets()]
-        selected_sheet_name = st.selectbox("📂 Selecciona una hoja para analizar:", sheet_names)
-        sheet = spreadsheet.worksheet(selected_sheet_name)
-        data = sheet.get_all_values()
-        df = pd.DataFrame(data[1:], columns=data[0])
-        df.columns = df.columns.str.strip()
+            st.image("logo_high_resolution.jpg", width=150) # Ajusta el ancho según sea necesario
+        except FileNotFoundError:
+            st.warning("No se encontró el archivo 'logo_high_resolution.jpg'. Asegúrate de que esté en la misma carpeta.")
+
+    st.write("Haz preguntas en lenguaje natural sobre tu información financiera.")
+    
 
     # --- CREDENCIALES GOOGLE DESDE SECRETS ---
-        try:
-        SHEET_URL = "https://docs.google.com/spreadsheets/d/1SaXuzhY_sJ9Tk9MOLDLAI4OVdsNbCP-X4L8cP15yTqo/"
-        spreadsheet = client.open_by_url(SHEET_URL)
-        sheet_names = [s.title for s in spreadsheet.worksheets()]
-        selected_sheet_name = st.selectbox("📂 Selecciona una hoja para analizar:", sheet_names)
-        sheet = spreadsheet.worksheet(selected_sheet_name)
-        data = sheet.get_all_values()
-        df = pd.DataFrame(data[1:], columns=data[0])
-        df.columns = df.columns.str.strip()
+    try:
+        creds_dict = json.loads(st.secrets["GOOGLE_CREDENTIALS"])
+        scope = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
+        creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
+        client = gspread.authorize(creds)
+    except KeyError:
+        st.error("❌ GOOGLE_CREDENTIALS no encontradas en st.secrets. Asegúrate de configurarlas correctamente.")
+        st.stop()
+    except Exception as e:
+        st.error("❌ Error al cargar las credenciales de Google.")
+        st.exception(e)
+        st.stop()
+
 
     # --- CARGA DATOS DESDE GOOGLE SHEET ---
     SHEET_URL = "https://docs.google.com/spreadsheets/d/1mXxUmIQ44rd9escHOee2w0LxGs4MVNXaPrUeqj4USpk/edit?gid=0#gid=0"
 
+    try:
         try:
         SHEET_URL = "https://docs.google.com/spreadsheets/d/1SaXuzhY_sJ9Tk9MOLDLAI4OVdsNbCP-X4L8cP15yTqo/"
         spreadsheet = client.open_by_url(SHEET_URL)
         sheet_names = [s.title for s in spreadsheet.worksheets()]
         selected_sheet_name = st.selectbox("📂 Selecciona una hoja para analizar:", sheet_names)
+
         sheet = spreadsheet.worksheet(selected_sheet_name)
         data = sheet.get_all_values()
         df = pd.DataFrame(data[1:], columns=data[0])
         df.columns = df.columns.str.strip()
-        try:
-        SHEET_URL = "https://docs.google.com/spreadsheets/d/1SaXuzhY_sJ9Tk9MOLDLAI4OVdsNbCP-X4L8cP15yTqo/"
-        spreadsheet = client.open_by_url(SHEET_URL)
-        sheet_names = [s.title for s in spreadsheet.worksheets()]
-        selected_sheet_name = st.selectbox("📂 Selecciona una hoja para analizar:", sheet_names)
-        sheet = spreadsheet.worksheet(selected_sheet_name)
-        data = sheet.get_all_values()
-        df = pd.DataFrame(data[1:], columns=data[0])
+except Exception as e:
+        st.error("❌ Error al cargar los datos desde Google Sheets.")
+        st.exception(e)
+        st.stop()
+        
+        # --- Limpiar nombres de columnas (eliminar espacios en blanco alrededor) ---
         df.columns = df.columns.str.strip()
 
         # --- Verificación de columnas esenciales al inicio (con los nombres exactos del usuario) ---
@@ -260,14 +262,14 @@ else:
                             }
                         ]
                     }
-                        try:
+                    try:
                         with st.spinner("Realizando prueba de API Key..."):
                             test_response = requests.post(test_api_url, headers={"Content-Type": "application/json"}, json=test_payload, timeout=10)
                         
                         st.subheader("Resultado de la Prueba:")
                         st.write(f"Código de estado HTTP: {test_response.status_code}")
                         st.json(test_response.json())
-    
+
                         if test_response.status_code == 200:
                             st.success("✅ ¡La API Key parece estar funcionando correctamente!")
                             if "candidates" in test_response.json() and len(test_response.json()["candidates"]) > 0:
@@ -299,12 +301,12 @@ else:
             st.session_state.question_history = st.session_state.question_history[-5:]
 
             # --- Configuración para la API de Google Gemini ---
-                try:
+            try:
                 google_gemini_api_key = st.secrets["GOOGLE_GEMINI_API_KEY"]
             except KeyError:
                 st.error("❌ GOOGLE_GEMINI_API_KEY no encontrada en st.secrets. Por favor, configúrala en .streamlit/secrets.toml")
                 st.stop()
-    
+
             api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={google_gemini_api_key}"
 
             # --- PRIMERA LLAMADA A GEMINI: DETECTAR INTENCIÓN Y EXTRAER PARÁMETROS ---
@@ -482,7 +484,7 @@ else:
                 }
             }
 
-                try:
+            try:
                 with st.spinner("Analizando su solicitud y preparando la visualización/análisis..."):
                     chart_response = requests.post(api_url, headers={"Content-Type": "application/json"}, json=chart_detection_payload)
                     if chart_response.status_code == 200:
@@ -492,9 +494,9 @@ else:
                            "content" in chart_response_json["candidates"][0] and \
                            "parts" in chart_response_json["candidates"][0]["content"] and \
                            len(chart_response_json["candidates"][0]["content"]["parts"]) > 0:
-    
+
                             chart_data_raw = chart_response_json["candidates"][0]["content"]["parts"][0]["text"]
-                                try:
+                            try:
                                 chart_data = json.loads(chart_data_raw)
                             except json.JSONDecodeError as e:
                                 st.error(f"❌ Error al procesar la respuesta JSON del modelo. El modelo devolvió JSON inválido: {e}")
@@ -508,7 +510,7 @@ else:
                         st.error(f"❌ Error al consultar la API de la IA para detección de visualización: {chart_response.status_code}")
                         st.text(chart_response.text)
                         st.stop()
-    
+
                     if chart_data.get("is_chart_request"):
                         st.success(chart_data.get("summary_response", "Aquí tienes la visualización solicitada:"))
 
@@ -517,7 +519,7 @@ else:
                         # --- Aplicar filtro principal (año/mes) ---
                         if chart_data["filter_column"] and chart_data["filter_value"]:
                             if chart_data["filter_column"] == "Fecha":
-                                    try:
+                                try:
                                     year_to_filter = int(chart_data["filter_value"])
                                     filtered_df = filtered_df[filtered_df["Fecha"].dt.year == year_to_filter]
                                 except ValueError:
@@ -536,22 +538,22 @@ else:
                                     filtered_df = filtered_df[filtered_df[chart_data["filter_column"]].astype(str).str.contains(chart_data["filter_value"], case=False, na=False)]
                                 else:
                                     st.warning(f"La columna '{chart_data['filter_column']}' para filtro principal no se encontró.")
-    
+
 
                         # --- Aplicar filtros por rango de fechas (start_date, end_date) ---
                         if chart_data.get("start_date"):
-                                try:
+                            try:
                                 start_dt = pd.to_datetime(chart_data["start_date"])
                                 filtered_df = filtered_df[filtered_df["Fecha"] >= start_dt]
                             except ValueError:
                                 st.warning(f"Formato de fecha de inicio inválido: {chart_data['start_date']}. No se aplicó el filtro.")
                         if chart_data.get("end_date"):
-                                try:
+                            try:
                                 end_dt = pd.to_datetime(chart_data["end_date"])
                                 filtered_df = filtered_df[filtered_df["Fecha"] <= end_dt]
                             except ValueError:
                                 st.warning(f"Formato de fecha de fin inválido: {chart_data['end_date']}. No se aplicó el filtro.")
-    
+
                         # --- Aplicar filtros adicionales ---
                         if chart_data.get("additional_filters"):
                             for add_filter in chart_data["additional_filters"]:
@@ -796,11 +798,11 @@ else:
                                     final_summary_response = final_summary_response.replace("[ESTIMACION_MENSUAL_RESTO_YEAR]", "\n" + "\n".join(projected_months_list)).replace("[TARGET_YEAR]", str(target_year))
 
                                 else:
-                                        try:
+                                    try:
                                         decomposition = seasonal_decompose(ts_data, model='additive', period=12, extrapolate_trend='freq')
                                         trend = decomposition.trend
                                         seasonal = decomposition.seasonal
-    
+
                                         for i in range(12 - current_month):
                                             future_date = current_date + relativedelta(months=i+1)
                                             future_month_num = future_date.month
@@ -1005,4 +1007,3 @@ else:
     except Exception as e:
         st.error("❌ No se pudo cargar la hoja de cálculo. Asegúrate de que la URL es correcta y las credenciales de Google Sheets están configuradas. También verifica que los nombres de las columnas en tu hoja coincidan con los esperados: 'Fecha', 'Monto Facturado', 'Tipo Cliente', 'Materiales y Pintura', 'Costos Financieros', 'Sucursal', 'Ejecutivo', 'Estado Pago', 'Forma de Pago', 'Descuento Aplicado (%), 'Observaciones'.")
         st.exception(e)
-
