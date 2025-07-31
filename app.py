@@ -77,14 +77,20 @@ else:
     SHEET_URL = "https://docs.google.com/spreadsheets/d/1mXxUmIQ44rd9escHOee2w0LxGs4MVNXaPrUeqj4USpk/edit?gid=0#gid=0"
 
     try:
-        sheet = client.open_by_url(SHEET_URL).sheet1
-        data = sheet.get_all_values()
-        df = pd.DataFrame(data[1:], columns=data[0])
-        
-        # --- Limpiar nombres de columnas (eliminar espacios en blanco alrededor) ---
-        df.columns = df.columns.str.strip()
+        spreadsheet = client.open_by_url(SHEET_URL)
+sheet_dataframes = {}
 
-        # --- Verificación de columnas esenciales al inicio (con los nombres exactos del usuario) ---
+for sheet_name in SHEET_NAMES:
+    worksheet = spreadsheet.worksheet(sheet_name)
+    values = worksheet.get_all_values()
+    headers = values[0]
+    rows = values[1:]
+    df_temp = pd.DataFrame(rows, columns=headers)
+    df_temp.columns = df_temp.columns.str.strip()
+    sheet_dataframes[sheet_name] = df_temp
+
+selected_sheet = st.selectbox("Selecciona la hoja a analizar:", SHEET_NAMES)
+df = sheet_dataframes[selected_sheet]ón de columnas esenciales al inicio (con los nombres exactos del usuario) ---
         # Lista actualizada con los nombres de columnas proporcionados por el usuario
         required_columns = ["Fecha", "Cliente", "Tipo Cliente", "Tipo Vehículo", "Factura N°", 
                             "Monto Facturado", "Materiales y Pintura", "Costos Financieros", 
