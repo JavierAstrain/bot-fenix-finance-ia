@@ -34,14 +34,10 @@ if uploaded_file:
 
     if user_question:
         preview = df.head(30).to_markdown(index=False)
-        full_prompt = f"{context}
-
-Datos:
-{preview}
-
-Pregunta del usuario: {user_question}"
+        full_prompt = f"{context}\n\nDatos:\n{preview}\n\nPregunta del usuario: {user_question}"
         with st.spinner("Pensando..."):
             response = model.generate_content(full_prompt)
             st.success(response.text)
 else:
     st.info("🔄 Por favor, sube un archivo Excel para comenzar.")
+
