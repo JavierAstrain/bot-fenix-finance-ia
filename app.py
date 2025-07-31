@@ -100,6 +100,7 @@ except Exception as e:
     st.stop()
 
 
+
         
         # --- Limpiar nombres de columnas (eliminar espacios en blanco alrededor) ---
         df.columns = df.columns.str.strip()
