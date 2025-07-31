@@ -74,12 +74,26 @@ else:
 
 
     # --- CARGA DATOS DESDE GOOGLE SHEET ---
-    SHEET_URL = "https://docs.google.com/spreadsheets/d/1mXxUmIQ44rd9escHOee2w0LxGs4MVNXaPrUeqj4USpk/edit?gid=0#gid=0"
+    # --- NUEVA URL CON MÚLTIPLES HOJAS ---
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1SaXuzhY_sJ9Tk9MOLDLAI4OVdsNbCP-X4L8cP15yTqo/edit#gid=0"
+
+# --- Nombres reales de las hojas de la planilla ---
+SHEET_NAMES = ["RECEPCION", "REPARACION", "FACTURACION", "FINANZAS"]
 
     try:
-        sheet = client.open_by_url(SHEET_URL).sheet1
-        data = sheet.get_all_values()
-        df = pd.DataFrame(data[1:], columns=data[0])
+spreadsheet = client.open_by_url(SHEET_URL)
+sheet_dataframes = {}
+
+for sheet_name in SHEET_NAMES:
+    sheet = spreadsheet.worksheet(sheet_name)
+    data = sheet.get_all_values()
+    df_temp = pd.DataFrame(data[1:], columns=data[0])
+    df_temp.columns = df_temp.columns.str.strip()
+    sheet_dataframes[sheet_name] = df_temp
+
+# Selector para elegir cuál hoja quieres analizar
+selected_sheet = st.selectbox("Selecciona la hoja a analizar:", SHEET_NAMES)
+df = sheet_dataframes[selected_sheet]
         
         # --- Limpiar nombres de columnas (eliminar espacios en blanco alrededor) ---
         df.columns = df.columns.str.strip()
