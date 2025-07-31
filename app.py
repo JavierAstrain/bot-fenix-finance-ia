@@ -77,9 +77,19 @@ else:
     SHEET_URL = "https://docs.google.com/spreadsheets/d/1mXxUmIQ44rd9escHOee2w0LxGs4MVNXaPrUeqj4USpk/edit?gid=0#gid=0"
 
     try:
-        sheet = client.open_by_url(SHEET_URL).sheet1
+        # --- CARGA DINÁMICA DE HOJAS DESDE GOOGLE SHEET ---
+    SHEET_URL = "https://docs.google.com/spreadsheets/d/1SaXuzhY_sJ9Tk9MOLDLAI4OVdsNbCP-X4L8cP15yTqo/"
+
+    try:
+        spreadsheet = client.open_by_url(SHEET_URL)
+        sheet_names = [s.title for s in spreadsheet.worksheets()]
+        selected_sheet_name = st.selectbox("📂 Selecciona una hoja para analizar:", sheet_names)
+        sheet = spreadsheet.worksheet(selected_sheet_name)
         data = sheet.get_all_values()
         df = pd.DataFrame(data[1:], columns=data[0])
+
+        # Limpiar nombres de columnas
+        df.columns = df.columns.str.strip()
         
         # --- Limpiar nombres de columnas (eliminar espacios en blanco alrededor) ---
         df.columns = df.columns.str.strip()
