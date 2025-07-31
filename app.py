@@ -534,7 +534,7 @@ else:
                         target_year = calculation_params.get("target_year")
                         if not target_year:
                              st.error("No se especificó el año para la proyección.")
-                             continue
+                             pass
                         
                         df_time_series = df_filtered.set_index("Fecha")["Monto"].resample("MS").sum() # Resample a inicio de mes
                         
