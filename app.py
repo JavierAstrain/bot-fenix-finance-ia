@@ -74,33 +74,12 @@ else:
 
 
     # --- CARGA DATOS DESDE GOOGLE SHEET ---
-# --- NUEVA URL CON MÚLTIPLES HOJAS ---
-SHEET_URL = "https://docs.google.com/spreadsheets/d/1SaXuzhY_sJ9Tk9MOLDLAI4OVdsNbCP-X4L8cP15yTqo/edit#gid=0"
-SHEET_NAMES = ["RECEPCION", "REPARACION", "FACTURACION", "FINANZAS"]
+    SHEET_URL = "https://docs.google.com/spreadsheets/d/1mXxUmIQ44rd9escHOee2w0LxGs4MVNXaPrUeqj4USpk/edit?gid=0#gid=0"
 
-# --- CARGA DE HOJAS MÚLTIPLES ---
-try:
-    spreadsheet = client.open_by_url(SHEET_URL)
-    sheet_dataframes = {}
-
-    for sheet_name in SHEET_NAMES:
-        sheet = spreadsheet.worksheet(sheet_name)
+    try:
+        sheet = client.open_by_url(SHEET_URL).sheet1
         data = sheet.get_all_values()
-        df_temp = pd.DataFrame(data[1:], columns=data[0])
-        df_temp.columns = df_temp.columns.str.strip()
-        sheet_dataframes[sheet_name] = df_temp
-
-    # Selector visual para elegir la hoja
-    selected_sheet = st.selectbox("Selecciona la hoja a analizar:", SHEET_NAMES)
-    df = sheet_dataframes[selected_sheet]
-
-except Exception as e:
-    st.error("❌ No se pudo cargar una o más hojas del Google Sheets.")
-    st.exception(e)
-    st.stop()
-
-
-
+        df = pd.DataFrame(data[1:], columns=data[0])
         
         # --- Limpiar nombres de columnas (eliminar espacios en blanco alrededor) ---
         df.columns = df.columns.str.strip()
